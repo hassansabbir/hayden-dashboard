@@ -32,7 +32,7 @@ const InputFieldPassword = ({
   return (
     <div className={cn("space-y-2", className)}>
       <div className="flex items-center justify-between">
-        <label className="block text-[11px] font-bold tracking-[0.1em] text-[#9CA3AF] uppercase">
+        <label className="block text-[11px] font-bold tracking-widest text-[#9CA3AF] uppercase">
           {title}
         </label>
         {isForgotPassword && (

@@ -20,13 +20,13 @@ const InputField = ({
 }: InputFieldProps) => {
   return (
     <div className="space-y-3">
-      {title && <label className="block text-[11px] font-bold tracking-[0.1em] text-[#9CA3AF] uppercase mb-2">{title}</label>}
+      {title && <label className="block text-[11px] font-bold tracking-widest text-[#9CA3AF] uppercase mb-2">{title}</label>}
       <div className="relative group">
         <input
           {...register(name)}
           type={type}
           placeholder={placeholder}
-          className={`w-full rounded-lg bg-gray-50 px-6 py-3 text-[14px] text-gray-600 outline-none transition-all placeholder:text-[#9CA3AF] border-2 border-transparent focus:border-[#0B3B0B]/10 focus:bg-white`}
+          className={`w-full rounded-lg bg-white border border-slate-200 px-6 py-3 text-[14px] text-gray-600 outline-none transition-all placeholder:text-[#9CA3AF] focus:border-[#0b3b0b]/40 focus:bg-white`}
         />
 
         {error && (

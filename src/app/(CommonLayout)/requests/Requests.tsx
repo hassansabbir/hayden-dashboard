@@ -15,6 +15,7 @@ import {
   XCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 
 type Status = "Pending" | "Confirmed" | "Declined";
 
@@ -32,7 +33,7 @@ interface RequestItem {
   requestedAt: string;
 }
 
-const mockData: Record<Lowercase<Status>, RequestItem[]> = {
+const initialMockData: Record<Lowercase<Status>, RequestItem[]> = {
   pending: [
     {
       id: "REQ005",
@@ -120,14 +121,32 @@ const mockData: Record<Lowercase<Status>, RequestItem[]> = {
 };
 
 const Requests = () => {
+  const { user } = useAuth();
+  const canDecide = user?.role === "club_owner";
+
+  const [requestsData, setRequestsData] = useState(initialMockData);
   const [activeTab, setActiveTab] = useState<Lowercase<Status>>("confirmed");
-  const [selectedRequest, setSelectedRequest] = useState<RequestItem | null>(mockData.confirmed[0]);
+  const [selectedRequest, setSelectedRequest] = useState<RequestItem | null>(initialMockData.confirmed[0]);
 
   const tabs = [
-    { label: "Pending", count: mockData.pending.length, value: "pending", badgeColor: "bg-orange-100 text-orange-600" },
-    { label: "Confirmed", count: mockData.confirmed.length, value: "confirmed", badgeColor: "bg-green-100 text-green-600" },
-    { label: "Declined", count: mockData.declined.length, value: "declined", badgeColor: "bg-red-100 text-red-600" },
+    { label: "Pending", count: requestsData.pending.length, value: "pending", badgeColor: "bg-orange-100 text-orange-600" },
+    { label: "Confirmed", count: requestsData.confirmed.length, value: "confirmed", badgeColor: "bg-green-100 text-green-600" },
+    { label: "Declined", count: requestsData.declined.length, value: "declined", badgeColor: "bg-red-100 text-red-600" },
   ] as const;
+
+  const handleDecision = (request: RequestItem, decision: "Confirmed" | "Declined") => {
+    const updated: RequestItem = { ...request, status: decision };
+    const targetKey = decision.toLowerCase() as Lowercase<Status>;
+
+    setRequestsData((prev) => ({
+      ...prev,
+      pending: prev.pending.filter((r) => r.id !== request.id),
+      [targetKey]: [updated, ...prev[targetKey]],
+    }));
+
+    const remainingPending = requestsData.pending.filter((r) => r.id !== request.id);
+    setSelectedRequest(remainingPending[0] ?? null);
+  };
 
   return (
     <div className="flex flex-col gap-8 p-6 animate-in fade-in duration-500">
@@ -144,7 +163,7 @@ const Requests = () => {
             key={tab.value}
             onClick={() => {
               setActiveTab(tab.value);
-              setSelectedRequest(mockData[tab.value][0] || null);
+              setSelectedRequest(requestsData[tab.value][0] || null);
             }}
             className={cn(
               "flex items-center gap-2 px-6 py-2.5 rounded-xl transition-all duration-200 font-medium",
@@ -167,11 +186,11 @@ const Requests = () => {
           <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-50 bg-gray-50/50">
               <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                {mockData[activeTab].length} {activeTab} REQUESTS
+                {requestsData[activeTab].length} {activeTab} REQUESTS
               </span>
             </div>
             <div className="flex flex-col">
-              {mockData[activeTab].map((request) => (
+              {requestsData[activeTab].map((request) => (
                 <button
                   key={request.id}
                   onClick={() => setSelectedRequest(request)}
@@ -218,7 +237,7 @@ const Requests = () => {
                   </div>
                 </button>
               ))}
-              {mockData[activeTab].length === 0 && (
+              {requestsData[activeTab].length === 0 && (
                 <div className="p-12 text-center text-gray-400">
                   No requests found for this category.
                 </div>
@@ -257,7 +276,7 @@ const Requests = () => {
 
                 {/* Player Information */}
                 <div className="bg-gray-50/50 p-6 rounded-2xl space-y-4">
-                  <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.1em]">PLAYER INFORMATION</h4>
+                  <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">PLAYER INFORMATION</h4>
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-full bg-[#eefaf3] flex items-center justify-center text-[#2ea268] font-bold text-lg">
                       {selectedRequest.avatar}
@@ -278,7 +297,7 @@ const Requests = () => {
 
                 {/* Booking Details */}
                 <div className="space-y-4">
-                  <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.1em]">BOOKING DETAILS</h4>
+                  <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">BOOKING DETAILS</h4>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="bg-white border border-gray-100 p-4 rounded-xl shadow-sm">
                       <div className="flex items-center gap-2 text-gray-300 mb-1">
@@ -314,16 +333,39 @@ const Requests = () => {
                 {/* Footer */}
                 <div className="pt-4 text-center">
                   <p className="text-[10px] text-gray-400 mb-6">Requested {selectedRequest.requestedAt}</p>
-                  <div className="py-4 border-t border-gray-50">
-                    <p className="text-sm">
-                      This request has already been <span className={cn(
-                        "font-bold",
-                        selectedRequest.status === "Confirmed" ? "text-green-600" :
-                          selectedRequest.status === "Pending" ? "text-orange-600" :
-                            "text-red-600"
-                      )}>{selectedRequest.status.toLowerCase()}</span>.
-                    </p>
-                  </div>
+                  {canDecide && selectedRequest.status === "Pending" ? (
+                    <div className="flex gap-3 pt-4 border-t border-gray-50">
+                      <button
+                        onClick={() => handleDecision(selectedRequest, "Declined")}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 transition-all text-sm font-bold"
+                      >
+                        <XCircle className="w-4 h-4" />
+                        Decline
+                      </button>
+                      <button
+                        onClick={() => handleDecision(selectedRequest, "Confirmed")}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[#2ea268] text-white hover:bg-[#288c5a] transition-all text-sm font-bold"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        Confirm
+                      </button>
+                    </div>
+                  ) : selectedRequest.status === "Pending" ? (
+                    <div className="py-4 border-t border-gray-50">
+                      <p className="text-sm text-orange-600 font-bold">
+                        Awaiting the club owner&apos;s decision.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="py-4 border-t border-gray-50">
+                      <p className="text-sm">
+                        This request has already been <span className={cn(
+                          "font-bold",
+                          selectedRequest.status === "Confirmed" ? "text-green-600" : "text-red-600"
+                        )}>{selectedRequest.status.toLowerCase()}</span>.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

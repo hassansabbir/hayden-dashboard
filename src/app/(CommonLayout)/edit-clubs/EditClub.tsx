@@ -5,346 +5,421 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus,
   Trash2,
-  Save,
   Image as ImageIcon,
-  MapPin,
-  Calendar,
   Tag,
-  Info,
   CheckCircle2,
   Trophy,
   Activity,
   Layers,
   Sparkles,
-  Upload,
-  X
+  X,
+  Star
 } from "lucide-react";
 import ImageUpload from "@/components/form/ImageUpload";
 import InputField from "@/components/form/InputField";
 import TextareaField from "@/components/form/TextareaField";
+import RequireRole from "@/components/auth/RequireRole";
 
-interface Amenity {
-  icon: string | File;
-  service: string;
+interface SellingPoint {
+  title: string;
   description: string;
 }
 
-interface ClubFormValues {
-  brand: {
-    image: string | File;
-    name: string;
-    established: number;
-    classification: string;
-    tagline: string;
-  };
-  architects: {
-    signature: string;
-    image: string | File;
-    title: string;
-    description: { text: string }[];
-    par_rating: number;
-    slope_rating: number;
-    bentgrass_type: string;
-    total_yardage: number;
-  };
-  amenities: Amenity[];
-  amenities_images: string | File;
+interface Facility {
+  name: string;
+  description: string;
 }
 
+interface GalleryImage {
+  src: string | File;
+}
+
+interface ClubFormValues {
+  name: string;
+  location: string;
+  rating: number;
+  reviewsCount: number;
+  summary: string;
+  description: string;
+  image: string | File;
+  stats: {
+    yardage: string;
+    par: number;
+    slope: number;
+    rating: number;
+    holes: number;
+    tees: number;
+    elevation: string;
+    avgTime: string;
+    courseType: string;
+    difficulty: string;
+  };
+  sellingPoints: SellingPoint[];
+  facilities: Facility[];
+  signatureHole: {
+    number: string;
+    name: string;
+    par: number;
+    yardage: number;
+    notes: string;
+    image: string | File;
+  };
+  gallery: GalleryImage[];
+}
 
 const EditClub = () => {
-  const existingClubInfo = {
-    brand: {
-      image: "https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?q=80&w=2070&auto=format&fit=crop",
-      name: "The Royal Ridges Estate",
-      established: 1924,
-      classification: "Signature Championship Course",
-      tagline: "Excellence in every swing. Experience the pinnacle of sporting luxury on our award-winning championship terrain."
+  const existingClubInfo: ClubFormValues = {
+    name: "The Royal Ridges Estate",
+    location: "Orchard Valley, CA",
+    rating: 4.9,
+    reviewsCount: 248,
+    summary:
+      "Excellence in every swing. Experience the pinnacle of sporting luxury on our award-winning championship terrain, designed for golfers who appreciate architectural precision and breathtaking valley landscapes.",
+    description:
+      "Designed originally in 1924 and beautifully revitalized for the modern competitor, The Royal Ridges Estate seamlessly blends traditional design principles with the rugged elevation changes of the orchard foothills. The course is characterized by strategic layouts that reward bold shot-making while offering safe bail-out routes for the conservative player. Meticulously groomed by a dedicated agronomy team, the fairways and greens provide tournament-level playability year-round.",
+    image: "https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?q=80&w=2000&auto=format&fit=crop",
+    stats: {
+      yardage: "7,200",
+      par: 72,
+      slope: 145,
+      rating: 74.8,
+      holes: 18,
+      tees: 5,
+      elevation: "180 ft",
+      avgTime: "4.5h",
+      courseType: "Parkland / Ridge",
+      difficulty: "Challenging",
     },
-    architects: {
-      signature: "legacy & ternain",
-      image: "https://images.unsplash.com/photo-1593113598332-cd288d649433?q=80&w=2070&auto=format&fit=crop",
-      title: "Architectural Precision Meets Natural Splendor.",
-      description: [
-        "Designed in 1924 and revitalized for the modern athlete, The Royal Ridges Estate seamlessly blends traditional course architecture with the rugged beauty of the valley's natural elevation changes.",
-        "Our course is famous for the Gorge Run—a three-hole stretch"
-      ],
-      par_rating: 72,
-      slope_rating: 145,
-      bentgrass_type: "A-4",
-      total_yardage: 7200,
-    },
-    amenities: [
+    sellingPoints: [
       {
-        icon: "https://images.unsplash.com/photo-1535131749006-b7f58c99034b?q=80&w=2070&auto=format&fit=crop",
-        service: "18-Hole Pro Course",
-        description: "Meticulously maintained bentgrass greens and white sand bunkers designed by legends."
+        title: "Championship Layout",
+        description: "Masterfully designed routing that tests every club in your bag with fair but demanding hazards.",
       },
       {
-        icon: "https://images.unsplash.com/photo-1559339352-11d035aa65de?q=80&w=2070&auto=format&fit=crop",
-        service: "Michelin Dining",
-        description: "Farm-to-table excellence at The Ridges Grill."
+        title: "Scenic Valley Views",
+        description: "Stunning panoramic backdrops of the Orchard Ridge that offer a majestic and serene atmosphere.",
       },
       {
-        icon: "https://images.unsplash.com/photo-1540555700478-4be289fbecef?q=80&w=2070&auto=format&fit=crop",
-        service: "Elite Wellness Spa",
-        description: "Recovery and rejuvenation after your round."
+        title: "Fast A-4 Greens",
+        description: "Immaculate green surfaces cutting-edge bentgrass rolling true and fast at a Stimpmeter rating of 11.5+.",
       },
       {
-        icon: "https://images.unsplash.com/photo-1473091534298-04dcbce3278c?q=80&w=2070&auto=format&fit=crop",
-        service: "Pro-Shop Concierge",
-        description: "Seamless equipment handling and caddy services."
+        title: "Strategic Bunkering",
+        description: "Over 80 meticulously placed white-sand bunkers that challenge your course management and placement.",
       },
     ],
-    amenities_images: "https://images.unsplash.com/photo-1595827432953-7161e19e303e?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+    facilities: [
+      { name: "350-Yard Driving Range", description: "Grass tees with laser-measured targets and premium practice balls." },
+      { name: "15,000 sq ft Putting Green", description: "Expansive green matching the slope and speed of the course." },
+      { name: "Dedicated Chipping Area", description: "Practice pitch shots from various lies onto a dedicated green." },
+      { name: "Greenside Bunker Practice", description: "Varied sand depths to hone your sand saves before teeing off." },
+      { name: "Golf Academy", description: "PGA-certified instructors offering video analysis and private instruction." },
+    ],
+    signatureHole: {
+      number: "14",
+      name: "The Chasm",
+      par: 4,
+      yardage: 445,
+      notes: "A dramatic par-4 requiring a precise tee shot over a deep forested ravine. A conservative play to the left fairway leaves a long iron into a double-tiered green. Playing closer to the ridge on the right gives a shorter wedge entry but risks going into the canyon.",
+      image: "https://images.unsplash.com/photo-1593111774240-d529f12cf4bb?auto=format&fit=crop&w=1200&q=80",
+    },
+    gallery: [
+      { src: "https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?auto=format&fit=crop&w=800&q=80" },
+      { src: "https://images.unsplash.com/photo-1535131749006-b7f58c99034b?auto=format&fit=crop&w=800&q=80" },
+      { src: "https://images.unsplash.com/photo-1613149817748-eb09859f518e?auto=format&fit=crop&w=800&q=80" },
+      { src: "https://images.unsplash.com/photo-1592919505780-303950717480?auto=format&fit=crop&w=800&q=80" },
+      { src: "https://images.unsplash.com/photo-1561214078-f3247647fc5e?auto=format&fit=crop&w=800&q=80" },
+      { src: "https://images.unsplash.com/photo-1500964757637-c85e8a162699?auto=format&fit=crop&w=800&q=80" },
+    ],
   };
 
   const { register, control, handleSubmit, formState: { errors } } = useForm<ClubFormValues>({
-    defaultValues: {
-      ...existingClubInfo,
-      architects: {
-        ...existingClubInfo.architects,
-        description: existingClubInfo.architects.description.map(d => ({ text: d }))
-      }
-    }
+    defaultValues: existingClubInfo
   });
 
-  const { fields: descFields, append: appendDesc, remove: removeDesc } = useFieldArray({
+  const { fields: facilityFields, append: appendFacility, remove: removeFacility } = useFieldArray({
     control,
-    name: "architects.description"
+    name: "facilities"
   });
 
-  const { fields: amenityFields, append: appendAmenity, remove: removeAmenity } = useFieldArray({
+  const { fields: galleryFields, append: appendGallery, remove: removeGallery } = useFieldArray({
     control,
-    name: "amenities"
+    name: "gallery"
   });
 
   const onSubmit: SubmitHandler<ClubFormValues> = (data) => {
-    console.log("Updated Club Info:", data);
-    alert("Club information updated! Check console for data including File objects.");
+    console.log("Updated Club Profile Data:", data);
+    alert("Club profile updated! Check browser developer console to view values.");
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 p-6 md:p-12 font-sans">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="max-w-6xl mx-auto"
-      >
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-12 gap-6">
-          <div>
-            <h1 className="text-4xl md:text-5xl font-extrabold text-slate-900 tracking-tight">
-              Edit Club Profile
-            </h1>
-            <p className="text-slate-500 mt-2 text-lg font-medium">Refine the essence of your elite golf destination.</p>
+    <RequireRole role="club_owner">
+      <div className="min-h-screen bg-slate-50 text-slate-900 p-6 md:p-12 font-sans">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="max-w-6xl mx-auto"
+        >
+          {/* Header */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between mb-12 gap-6">
+            <div>
+              <h1 className="text-4xl md:text-5xl font-extrabold text-slate-900 tracking-tight">
+                Edit Club Profile
+              </h1>
+              <p className="text-slate-500 mt-2 text-lg font-medium">
+                All profile updates flow dynamically to your public website details page.
+              </p>
+            </div>
           </div>
-        </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-12">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-12">
 
-          {/* Section 1: Brand Identity */}
-          <section className="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-8 text-slate-100 pointer-events-none">
-              <Sparkles size={120} />
-            </div>
-            <div className="flex items-center gap-3 mb-8">
-              <div className="p-3 bg-emerald-50 rounded-xl text-emerald-600">
-                <Tag size={24} />
+            {/* SECTION 1: CORE BRAND DETAILS */}
+            <section className="bg-white border border-slate-200 rounded-3xl p-8 shadow-xs relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-8 text-slate-100 pointer-events-none">
+                <Sparkles size={120} />
               </div>
-              <h2 className="text-2xl font-bold text-slate-800">Brand Identity</h2>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-              <div className="space-y-6">
-                <InputField title="Club Name" name="brand.name" register={register} error={errors.brand?.name} />
-                <div className="grid grid-cols-2 gap-4">
-                  <InputField title="Classification" name="brand.classification" register={register} error={errors.brand?.classification} />
-                  <InputField title="Established" name="brand.established" register={register} error={errors.brand?.established} />
+              <div className="flex items-center gap-3 mb-8">
+                <div className="p-3 bg-emerald-50 rounded-xl text-emerald-600">
+                  <Tag size={24} />
                 </div>
-                <TextareaField title="Club Tagline" name="brand.tagline" register={register} error={errors.brand?.tagline} />
+                <h2 className="text-2xl font-bold text-slate-800">Core Club Details</h2>
               </div>
 
-              <div>
-                <Controller control={control} name="brand.image" render={({ field }) => (
-                  <ImageUpload label="Brand Hero Image" value={field.value} onChange={field.onChange} aspectRatio="aspect-[4/3]" />
-                )} />
-              </div>
-            </div>
-          </section>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                <div className="space-y-6">
+                  <InputField title="Club Name" name="name" register={register} error={errors.name} />
+                  <InputField title="Location (City, State)" name="location" register={register} error={errors.location} />
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <InputField title="Average Rating" name="rating" type="number" register={register} error={errors.rating} />
+                    <InputField title="Verified Reviews Count" name="reviewsCount" type="number" register={register} error={errors.reviewsCount} />
+                  </div>
 
-          {/* Section 2: Architecture & Specs */}
-          <section className="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm relative">
-            <div className="flex items-center gap-3 mb-8">
-              <div className="p-3 bg-cyan-50 rounded-xl text-cyan-600">
-                <Layers size={24} />
-              </div>
-              <h2 className="text-2xl font-bold text-slate-800">Course Architecture</h2>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              <div className="lg:col-span-2 space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <InputField title="Architecture Title" name="architects.title" register={register} error={errors.architects?.title} />
-                  <InputField title="Signature Style" name="architects.signature" register={register} error={errors.architects?.signature} />
+                  <TextareaField title="Brief Summary (Hero Tagline)" name="summary" register={register} error={errors.summary} />
+                  <TextareaField title="Detailed Course Overview Description" name="description" register={register} error={errors.description} rows={6} />
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <label className="block text-[11px] font-bold tracking-[0.1em] text-[#9CA3AF] uppercase">Narrative Descriptions</label>
-                    <button
-                      type="button"
-                      onClick={() => appendDesc({ text: "" })}
-                      className="text-xs flex items-center gap-1 text-cyan-600 hover:text-cyan-700 transition-colors bg-cyan-50 px-3 py-1.5 rounded-lg border border-cyan-100 font-bold"
+                  <Controller control={control} name="image" render={({ field }) => (
+                    <ImageUpload label="Hero Background Image Banner" value={field.value} onChange={field.onChange} aspectRatio="aspect-video" />
+                  )} />
+                </div>
+              </div>
+            </section>
+
+            {/* SECTION 2: COURSE SPECIFICATIONS */}
+            <section className="bg-white border border-slate-200 rounded-3xl p-8 shadow-xs relative">
+              <div className="flex items-center gap-3 mb-8">
+                <div className="p-3 bg-cyan-50 rounded-xl text-cyan-600">
+                  <Activity size={24} />
+                </div>
+                <h2 className="text-2xl font-bold text-slate-800">Course Specs & Metrics</h2>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                <InputField title="Total Yardage" name="stats.yardage" register={register} error={errors.stats?.yardage} />
+                <InputField title="Par Rating" name="stats.par" type="number" register={register} error={errors.stats?.par} />
+                <InputField title="Slope Rating" name="stats.slope" type="number" register={register} error={errors.stats?.slope} />
+                <InputField title="Course Rating" name="stats.rating" type="number" register={register} error={errors.stats?.rating} />
+                <InputField title="Number of Holes" name="stats.holes" type="number" register={register} error={errors.stats?.holes} />
+                <InputField title="Number of Tee Boxes" name="stats.tees" type="number" register={register} error={errors.stats?.tees} />
+                <InputField title="Elevation Changes" name="stats.elevation" register={register} error={errors.stats?.elevation} />
+                <InputField title="Average Round Time" name="stats.avgTime" register={register} error={errors.stats?.avgTime} />
+                <InputField title="Course Type" name="stats.courseType" register={register} error={errors.stats?.courseType} />
+                <InputField title="Difficulty Level" name="stats.difficulty" register={register} error={errors.stats?.difficulty} />
+              </div>
+            </section>
+
+            {/* SECTION 3: WHY GOLFERS LOVE THIS COURSE (4 SELLING POINTS) */}
+            <section className="bg-white border border-slate-200 rounded-3xl p-8 shadow-xs relative">
+              <div className="flex items-center gap-3 mb-8">
+                <div className="p-3 bg-amber-50 rounded-xl text-amber-600">
+                  <Trophy size={24} />
+                </div>
+                <h2 className="text-2xl font-bold text-slate-800">Why Golfers Love This Course (4 Selling Points)</h2>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {[0, 1, 2, 3].map((index) => (
+                  <div key={index} className="p-6 bg-slate-50 rounded-2xl border border-slate-200 space-y-4">
+                    <span className="inline-block text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-md border border-amber-100 uppercase tracking-wider mb-2">
+                      Highlight Selling Point #{index + 1}
+                    </span>
+                    <InputField
+                      title="Selling Point Title"
+                      name={`sellingPoints.${index}.title`}
+                      register={register}
+                      error={errors.sellingPoints?.[index]?.title}
+                    />
+                    <TextareaField
+                      title="Selling Point Description"
+                      name={`sellingPoints.${index}.description`}
+                      register={register}
+                      error={errors.sellingPoints?.[index]?.description}
+                      rows={3}
+                    />
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* SECTION 4: PRACTICE & PLAYING FACILITIES */}
+            <section className="bg-white border border-slate-200 rounded-3xl p-8 shadow-xs relative">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-purple-50 rounded-xl text-purple-600">
+                    <Layers size={24} />
+                  </div>
+                  <h2 className="text-2xl font-bold text-slate-800">Practice & Playing Facilities</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => appendFacility({ name: "", description: "" })}
+                  className="flex items-center gap-2 bg-purple-50 hover:bg-purple-100 text-purple-600 px-5 py-2.5 rounded-xl text-sm font-bold transition-all border border-purple-100 cursor-pointer self-start"
+                >
+                  <Plus size={18} /> Add Facility
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <AnimatePresence mode="popLayout">
+                  {facilityFields.map((field, index) => (
+                    <motion.div
+                      key={field.id}
+                      layout
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      className="group bg-slate-50 border border-slate-200 p-6 rounded-2xl relative hover:border-purple-300 transition-all shadow-xs"
                     >
-                      <Plus size={14} /> Add Paragraph
-                    </button>
-                  </div>
-                  <div className="space-y-4">
-                    <AnimatePresence mode="popLayout">
-                      {descFields.map((field, index) => (
-                        <motion.div
-                          key={field.id}
-                          layout
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, scale: 0.95 }}
-                          className="relative"
-                        >
-                          <textarea
-                            {...register(`architects.description.${index}.text` as const)}
-                            rows={3}
-                            className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-4 pr-12 py-4 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:bg-white transition-all resize-none text-slate-600"
-                            placeholder="Describe a unique aspect of the course..."
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeDesc(index)}
-                            className="absolute top-4 right-4 text-slate-400 hover:text-red-500 transition-colors p-2"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </motion.div>
-                      ))}
-                    </AnimatePresence>
-                  </div>
+                      <button
+                        type="button"
+                        onClick={() => removeFacility(index)}
+                        className="absolute top-4 right-4 text-slate-400 hover:text-red-500 transition-colors p-2"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+
+                      <div className="space-y-4 pr-8">
+                        <InputField
+                          title="Facility Name"
+                          name={`facilities.${index}.name`}
+                          placeholder="e.g. 350-Yard Driving Range"
+                          register={register}
+                          error={errors.facilities?.[index]?.name}
+                        />
+                        <TextareaField
+                          title="Facility Description"
+                          name={`facilities.${index}.description`}
+                          placeholder="Describe targets, size, availability..."
+                          register={register}
+                          error={errors.facilities?.[index]?.description}
+                          rows={2}
+                        />
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
+            </section>
+
+            {/* SECTION 5: SIGNATURE HOLE SHOWCASE */}
+            <section className="bg-white border border-slate-200 rounded-3xl p-8 shadow-xs relative">
+              <div className="flex items-center gap-3 mb-8">
+                <div className="p-3 bg-rose-50 rounded-xl text-rose-600">
+                  <Star size={24} />
                 </div>
+                <h2 className="text-2xl font-bold text-slate-800">Signature Hole Showcase</h2>
               </div>
 
-              <div className="space-y-8">
-                <Controller control={control} name="architects.image" render={({ field }) => (
-                  <ImageUpload label="Feature Architecture Image" value={field.value} onChange={field.onChange} />
-                )} />
-
-                <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-cyan-700 mb-6 flex items-center gap-2">
-                    <Activity size={16} /> Course Specs
-                  </h3>
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                      <InputField title="Par" name="architects.par_rating" register={register} error={errors.architects?.par_rating} />
-                      <InputField title="Grass" name="architects.bentgrass_type" register={register} error={errors.architects?.bentgrass_type} />
-                    </div>
-                    <div className="space-y-4">
-                      <InputField title="Slope" name="architects.slope_rating" register={register} error={errors.architects?.slope_rating} />
-                      <InputField title="Yardage" name="architects.total_yardage" register={register} error={errors.architects?.total_yardage} />
-                    </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                <div className="space-y-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <InputField title="Hole Number" name="signatureHole.number" register={register} error={errors.signatureHole?.number} />
+                    <InputField title="Hole Name" name="signatureHole.name" register={register} error={errors.signatureHole?.name} />
                   </div>
-                </div>
-              </div>
-            </div>
-          </section>
 
-          {/* Section 3: Amenities */}
-          <section className="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm relative">
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-purple-50 rounded-xl text-purple-600">
-                  <CheckCircle2 size={24} />
+                  <div className="grid grid-cols-2 gap-4">
+                    <InputField title="Par Rating" name="signatureHole.par" type="number" register={register} error={errors.signatureHole?.par} />
+                    <InputField title="Yardage" name="signatureHole.yardage" type="number" register={register} error={errors.signatureHole?.yardage} />
+                  </div>
+
+                  <TextareaField title="Strategic Playing Notes" name="signatureHole.notes" register={register} error={errors.signatureHole?.notes} rows={4} />
                 </div>
-                <h2 className="text-2xl font-bold text-slate-800">Premier Amenities</h2>
+
+                <div>
+                  <Controller control={control} name="signatureHole.image" render={({ field }) => (
+                    <ImageUpload label="Signature Hole Showcase Image" value={field.value} onChange={field.onChange} aspectRatio="aspect-video" />
+                  )} />
+                </div>
               </div>
+            </section>
+
+            {/* SECTION 6: COURSE GALLERY */}
+            <section className="bg-white border border-slate-200 rounded-3xl p-8 shadow-xs relative">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-blue-50 rounded-xl text-blue-600">
+                    <ImageIcon size={24} />
+                  </div>
+                  <h2 className="text-2xl font-bold text-slate-800">Course Photo Gallery</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => appendGallery({ src: "" })}
+                  className="flex items-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-600 px-5 py-2.5 rounded-xl text-sm font-bold transition-all border border-blue-100 cursor-pointer self-start"
+                >
+                  <Plus size={18} /> Add Photo
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+                <AnimatePresence mode="popLayout">
+                  {galleryFields.map((field, index) => (
+                    <motion.div
+                      key={field.id}
+                      layout
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      className="group bg-slate-50 border border-slate-200 p-4 rounded-2xl relative hover:border-blue-300 transition-all shadow-xs"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => removeGallery(index)}
+                        className="absolute -top-3 -right-3 bg-white hover:bg-red-500 text-slate-400 hover:text-white rounded-full p-2 transition-all shadow-sm border border-slate-200 hover:border-red-500 z-10 cursor-pointer"
+                      >
+                        <X size={14} />
+                      </button>
+
+                      <Controller control={control} name={`gallery.${index}.src` as const} render={({ field }) => (
+                        <ImageUpload label={`Gallery Image #${index + 1}`} value={field.value} onChange={field.onChange} aspectRatio="aspect-video" />
+                      )} />
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
+            </section>
+
+            {/* FORM SUBMISSION BAR */}
+            <div className="flex flex-col md:flex-row items-center justify-between pt-6 border-t border-slate-200 gap-6">
+              <p className="text-slate-400 text-sm font-medium italic">
+                * Publishing updates will immediately update the public club landing page.
+              </p>
               <button
-                type="button"
-                onClick={() => appendAmenity({ icon: "", service: "", description: "" })}
-                className="flex items-center gap-2 bg-purple-50 hover:bg-purple-100 text-purple-600 px-5 py-2.5 rounded-xl text-sm font-bold transition-all border border-purple-100"
+                type="submit"
+                className="group flex items-center justify-center gap-3 bg-emerald-600 hover:bg-emerald-700 text-white px-12 py-5 rounded-2xl font-bold text-lg transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-xl cursor-pointer"
               >
-                <Plus size={18} /> Add New Amenity
+                Publish Updates
+                <CheckCircle2 size={24} className="group-hover:animate-bounce" />
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <AnimatePresence mode="popLayout">
-                {amenityFields.map((field, index) => (
-                  <motion.div
-                    key={field.id}
-                    layout
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    className="group bg-slate-50/50 border border-slate-200 p-6 rounded-3xl relative hover:border-purple-300 hover:bg-white transition-all shadow-sm hover:shadow-md"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => removeAmenity(index)}
-                      className="absolute -top-3 -right-3 bg-white hover:bg-red-500 text-slate-400 hover:text-white rounded-full p-2.5 transition-all shadow-sm border border-slate-200 hover:border-red-500 z-10"
-                    >
-                      <X size={16} />
-                    </button>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                      <div className="sm:col-span-1">
-                        <Controller control={control} name={`amenities.${index}.icon` as const} render={({ field }) => (
-                          <ImageUpload label="Icon/Image" value={field.value} onChange={field.onChange} aspectRatio="aspect-square" />
-                        )} />
-                      </div>
-                      <div className="sm:col-span-2 space-y-4">
-                        <div>
-                          <label className="block text-[11px] font-bold tracking-[0.1em] text-[#9CA3AF] uppercase mb-2">Service Name</label>
-                          <input
-                            {...register(`amenities.${index}.service` as const)}
-                            className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all text-slate-600"
-                            placeholder="e.g. Michelin Dining"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-bold tracking-[0.1em] text-[#9CA3AF] uppercase mb-2">Description</label>
-                          <textarea
-                            {...register(`amenities.${index}.description` as const)}
-                            rows={3}
-                            className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none transition-all text-slate-600"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
-
-            <div className="mt-12 pt-12 border-t border-slate-100">
-              <Controller control={control} name="amenities_images" render={({ field }) => (
-                <ImageUpload label="Amenities Section Background Banner" value={field.value} onChange={field.onChange} aspectRatio="aspect-[21/9]" />
-              )} />
-            </div>
-          </section>
-
-          {/* Form Footer Action */}
-          <div className="flex flex-col md:flex-row items-center justify-between pt-6 gap-6">
-            <p className="text-slate-400 text-sm font-medium italic">
-              * Finalize and publish your changes to the live club portal.
-            </p>
-            <button
-              type="submit"
-              className="group flex items-center justify-center gap-3 bg-emerald-600 hover:bg-emerald-700 text-white px-12 py-5 rounded-2xl font-bold text-lg transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-xl">
-              Publish Updates
-              <CheckCircle2 size={24} className="group-hover:animate-bounce" />
-            </button>
-          </div>
-
-        </form>
-      </motion.div>
-    </div>
+          </form>
+        </motion.div>
+      </div>
+    </RequireRole>
   );
 };
 

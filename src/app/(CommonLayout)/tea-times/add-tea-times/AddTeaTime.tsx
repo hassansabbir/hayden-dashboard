@@ -14,6 +14,7 @@ import {
   Sparkles
 } from "lucide-react";
 import InputField from "@/components/form/InputField";
+import RequireRole from "@/components/auth/RequireRole";
 
 interface Slot {
   from: string;
@@ -56,6 +57,7 @@ const AddTeaTime = () => {
   };
 
   return (
+    <RequireRole role="club_owner">
     <div className="min-h-screen bg-slate-50 p-6 md:p-12 font-sans">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -166,6 +168,7 @@ const AddTeaTime = () => {
         </form>
       </motion.div>
     </div>
+    </RequireRole>
   );
 };
 

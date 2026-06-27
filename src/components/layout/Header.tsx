@@ -2,8 +2,11 @@
 
 // import { Bell } from "lucide-react";
 import Link from "next/link";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Header = () => {
+  const { user } = useAuth();
+
   return (
     <header className="h-20 bg-white border-b border-gray-100 flex items-center justify-between px-8 sticky top-0 z-10">
       <div className="flex items-center gap-4">
@@ -25,7 +28,9 @@ const Header = () => {
                 className="w-full h-full object-cover"
               />
             </span>
-            <span className="text-sm font-medium text-gray-700">Admin</span>
+            <span className="text-sm font-medium text-gray-700">
+              {user?.role === "admin" ? "Admin" : user?.name ?? "Club Owner"}
+            </span>
           </Link>
         </div>
       </div>

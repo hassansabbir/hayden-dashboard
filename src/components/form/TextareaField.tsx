@@ -21,15 +21,15 @@ const TextareaField = ({
 }: TextareaFieldProps) => {
   return (
     <div className="space-y-3">
-      <label className="block text-[11px] font-bold tracking-[0.1em] text-[#9CA3AF] uppercase">{title}</label>
+      <label className="block text-[11px] font-bold tracking-widest text-[#9CA3AF] uppercase">{title}</label>
       <div className="relative group">
         <textarea
           {...register(name)}
           placeholder={placeholder}
-          className={`w-full bg-gray-50 border-2 rounded-lg py-3 px-6 text-[14px] text-gray-600 placeholder:text-gray-400 outline-none transition-all focus:border-[#0B3B0B]/10 focus:bg-white
+          className={`w-full bg-white border rounded-lg py-3 px-6 text-[14px] text-gray-600 placeholder:text-gray-400 outline-none transition-all focus:border-[#0B3B0B]/40 focus:bg-white
         ${error
-              ? "border-red-400 focus:ring-red-100 bg-red-50/30"
-              : "border-transparent focus:ring-gray-200"
+              ? "border-red-400 bg-red-50/30"
+              : "border-slate-200"
             }`}
           rows={rows}
         />

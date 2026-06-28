@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import { useEffect, useState } from "react";
 import {
   AreaChart,
   Area,
@@ -11,23 +11,29 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { TrendingUp } from "lucide-react";
+import { fetchUrl } from "@/lib/fetchUrl";
+import { formatShortDate } from "@/lib/formatTeeTime";
 
-const data = [
-  { name: "Apr 8", requests: 3 },
-  { name: "Apr 9", requests: 5 },
-  { name: "Apr 10", requests: 4 },
-  { name: "Apr 11", requests: 7 },
-  { name: "Apr 12", requests: 6 },
-  { name: "Apr 13", requests: 9 },
-  { name: "Apr 14", requests: 5 },
-];
+interface OverviewRow {
+  name: string;
+  requests: number;
+  confirmed: number;
+}
 
 const RequestOverview = () => {
-  const [mounted, setMounted] = React.useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [data, setData] = useState<OverviewRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  React.useEffect(() => {
+  useEffect(() => {
     setMounted(true);
+    fetchUrl("/dashboard/requests-overview")
+      .then((res) => setData(res.data.map((row: OverviewRow) => ({ ...row, name: formatShortDate(row.name) }))))
+      .catch(() => setData([]))
+      .finally(() => setIsLoading(false));
   }, []);
+
+  const totalThisWeek = data.reduce((sum, row) => sum + row.requests, 0);
 
   return (
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col h-full">
@@ -39,13 +45,19 @@ const RequestOverview = () => {
         </div>
         <div className="flex items-center gap-2 bg-[#eefaf3] text-[#2ea268] px-3 py-1.5 rounded-full text-xs font-semibold">
           <TrendingUp className="w-3.5 h-3.5" />
-          <span>+18% this week</span>
+          <span>{isLoading ? "..." : `${totalThisWeek} this week`}</span>
         </div>
       </div>
 
       {/* Chart */}
       <div className="h-[300px] w-full">
-        {mounted ? (
+        {!mounted || isLoading ? (
+          <div className="w-full h-full min-h-[300px] bg-gray-50/50 animate-pulse rounded-lg flex items-center justify-center text-gray-300" />
+        ) : data.length === 0 ? (
+          <div className="w-full h-full min-h-[300px] flex items-center justify-center text-sm text-gray-400">
+            No requests in the last 7 days.
+          </div>
+        ) : (
           <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
             <AreaChart
               data={data}
@@ -73,7 +85,7 @@ const RequestOverview = () => {
                 axisLine={false}
                 tickLine={false}
                 tick={{ fill: "#94a3b8", fontSize: 12 }}
-                ticks={[0, 3, 6, 9, 12]}
+                allowDecimals={false}
               />
               <Tooltip
                 contentStyle={{
@@ -85,15 +97,23 @@ const RequestOverview = () => {
               <Area
                 type="monotone"
                 dataKey="requests"
+                name="Requests"
                 stroke="#142d22"
                 strokeWidth={2}
                 fillOpacity={1}
                 fill="url(#colorRequests)"
               />
+              <Area
+                type="monotone"
+                dataKey="confirmed"
+                name="Confirmed"
+                stroke="#142d22"
+                strokeOpacity={0.4}
+                strokeWidth={2}
+                fill="transparent"
+              />
             </AreaChart>
           </ResponsiveContainer>
-        ) : (
-          <div className="w-full h-full min-h-[300px] bg-gray-50/50 animate-pulse rounded-lg flex items-center justify-center text-gray-300" />
         )}
       </div>
 

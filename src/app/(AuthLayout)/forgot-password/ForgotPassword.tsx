@@ -6,6 +6,9 @@ import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import InputField from "@/components/form/InputField";
+import { fetchUrl } from "@/lib/fetchUrl";
+
+import { toast } from "sonner";
 
 interface ForgotFormValues {
   email: string;
@@ -14,6 +17,7 @@ interface ForgotFormValues {
 const ForgotPassword = () => {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const {
     register,
@@ -24,12 +28,23 @@ const ForgotPassword = () => {
   });
 
   const onSubmit = async (data: ForgotFormValues) => {
+    setError(null);
     setIsSubmitting(true);
-    // Mock OTP dispatch until the password-reset API is wired up.
-    window.sessionStorage.setItem("reset-email", data.email);
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    setIsSubmitting(false);
-    router.push("/verify-otp");
+    try {
+      await fetchUrl("/auth/forgot-password", {
+        method: "POST",
+        body: { email: data.email },
+      });
+      window.sessionStorage.setItem("reset-email", data.email);
+      toast.success("Verification code sent to your email!");
+      router.push("/verify-otp");
+    } catch (err: any) {
+      const errMsg = err.message || "Failed to initiate password reset.";
+      setError(errMsg);
+      toast.error(errMsg);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -56,6 +71,10 @@ const ForgotPassword = () => {
           register={register}
           error={errors.email}
         />
+
+        {error && (
+          <p className="text-sm font-medium text-red-500">{error}</p>
+        )}
 
         <button
           type="submit"

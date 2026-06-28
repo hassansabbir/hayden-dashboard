@@ -1,29 +1,31 @@
 "use client";
 
-import { useForm, useFieldArray, SubmitHandler } from "react-hook-form";
+import { useState } from "react";
+import { useForm, useFieldArray, SubmitHandler, Control, UseFormRegister, FieldErrors } from "react-hook-form";
 import { motion, AnimatePresence } from "framer-motion";
+import { useRouter } from "next/navigation";
 import {
   Plus,
   Trash2,
-  Clock,
   Calendar,
   CheckCircle2,
-  Save,
   Info,
-  Layers,
   Sparkles
 } from "lucide-react";
+import { toast } from "sonner";
 import InputField from "@/components/form/InputField";
 import RequireRole from "@/components/auth/RequireRole";
+import { fetchUrl } from "@/lib/fetchUrl";
 
 interface Slot {
   from: string;
   to: string;
+  price: string;
+  capacity: number;
 }
 
 interface TeaTimeSchedule {
   date: string;
-  time: string;
   slots: Slot[];
 }
 
@@ -31,16 +33,18 @@ interface TeaTimeFormValues {
   schedules: TeaTimeSchedule[];
 }
 
+const blankSlot: Slot = { from: "", to: "", price: "", capacity: 4 };
+
 const AddTeaTime = () => {
+  const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const { register, control, handleSubmit, formState: { errors } } = useForm<TeaTimeFormValues>({
     defaultValues: {
       schedules: [
         {
           date: "",
-          time: "",
-          slots: [
-            { from: "", to: "" }
-          ]
+          slots: [{ ...blankSlot }]
         }
       ]
     }
@@ -51,9 +55,29 @@ const AddTeaTime = () => {
     name: "schedules"
   });
 
-  const onSubmit: SubmitHandler<TeaTimeFormValues> = (data) => {
-    console.log("New Tea Time Schedules:", data.schedules);
-    alert("Schedules added successfully! Check console for data.");
+  const onSubmit: SubmitHandler<TeaTimeFormValues> = async (data) => {
+    setIsSubmitting(true);
+    try {
+      const payload = {
+        schedules: data.schedules.map((schedule) => ({
+          date: schedule.date,
+          slots: schedule.slots.map((slot) => ({
+            from: slot.from,
+            to: slot.to,
+            price: slot.price,
+            capacity: slot.capacity,
+          })),
+        })),
+      };
+
+      await fetchUrl("/tee-times/bulk", { method: "POST", body: payload });
+      toast.success("Tee time schedules published!");
+      router.push("/tea-times");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to publish tee time schedules.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -75,7 +99,7 @@ const AddTeaTime = () => {
           <div className="flex gap-4">
             <button
               type="button"
-              onClick={() => appendSchedule({ date: "", time: "", slots: [{ from: "", to: "" }] })}
+              onClick={() => appendSchedule({ date: "", slots: [{ ...blankSlot }] })}
               className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-6 py-3 rounded-xl font-bold hover:bg-slate-50 transition-all shadow-sm"
             >
               <Plus size={18} />
@@ -142,7 +166,7 @@ const AddTeaTime = () => {
               <p className="text-slate-400 mt-2 mb-8">Start by adding your first tee time schedule day.</p>
               <button
                 type="button"
-                onClick={() => appendSchedule({ date: "", time: "", slots: [{ from: "", to: "" }] })}
+                onClick={() => appendSchedule({ date: "", slots: [{ ...blankSlot }] })}
                 className="inline-flex items-center gap-2 bg-slate-900 text-white px-8 py-4 rounded-2xl font-bold hover:bg-slate-800 transition-all shadow-xl"
               >
                 <Plus size={20} />
@@ -155,14 +179,15 @@ const AddTeaTime = () => {
           <div className="flex justify-between items-center pt-6 border-t border-slate-200">
             <p className="text-sm text-slate-400 italic flex items-center gap-2">
               <Info size={14} />
-              Review all slots before publishing. Booked status defaults to false.
+              Review all slots before publishing. Booked count defaults to 0.
             </p>
             <button
               type="submit"
-              className="group flex items-center justify-center gap-3 bg-emerald-600 text-white px-12 py-5 rounded-2xl font-black text-lg transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-[0_10px_30px_rgba(16,185,129,0.2)] hover:bg-emerald-700"
+              disabled={isSubmitting}
+              className="group flex items-center justify-center gap-3 bg-emerald-600 text-white px-12 py-5 rounded-2xl font-black text-lg transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-[0_10px_30px_rgba(16,185,129,0.2)] hover:bg-emerald-700 disabled:opacity-60 disabled:hover:scale-100"
             >
-              Publish Schedules
-              <CheckCircle2 size={24} className="group-hover:animate-bounce" />
+              {isSubmitting ? "Publishing..." : "Publish Schedules"}
+              <CheckCircle2 size={24} className={isSubmitting ? "" : "group-hover:animate-bounce"} />
             </button>
           </div>
         </form>
@@ -173,7 +198,17 @@ const AddTeaTime = () => {
 };
 
 // Nested Field Array for Slots
-const SlotFieldArray = ({ sIndex, control, register, errors }: any) => {
+const SlotFieldArray = ({
+  sIndex,
+  control,
+  register,
+  errors,
+}: {
+  sIndex: number;
+  control: Control<TeaTimeFormValues>;
+  register: UseFormRegister<TeaTimeFormValues>;
+  errors: FieldErrors<TeaTimeFormValues>;
+}) => {
   const { fields, append, remove } = useFieldArray({
     control,
     name: `schedules.${sIndex}.slots`
@@ -181,7 +216,7 @@ const SlotFieldArray = ({ sIndex, control, register, errors }: any) => {
 
   return (
     <div className="w-full space-y-2">
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4">
         <AnimatePresence mode="popLayout">
           {fields.map((field, index) => (
             <motion.div
@@ -192,9 +227,36 @@ const SlotFieldArray = ({ sIndex, control, register, errors }: any) => {
               exit={{ opacity: 0, x: 10 }}
               className="flex flex-col sm:flex-row items-end gap-4 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm relative group"
             >
-              <div className="flex-1 grid grid-cols-2 gap-4 w-full">
-                <InputField name={`schedules.${sIndex}.slots.${index}.from`} type="time" register={register} error={errors.schedules?.[sIndex]?.slots?.[index]?.from as any} />
-                <InputField name={`schedules.${sIndex}.slots.${index}.to`} type="time" register={register} error={errors.schedules?.[sIndex]?.slots?.[index]?.to as any} />
+              <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-4 w-full">
+                <InputField
+                  title="From"
+                  name={`schedules.${sIndex}.slots.${index}.from`}
+                  type="time"
+                  register={register}
+                  error={errors.schedules?.[sIndex]?.slots?.[index]?.from}
+                />
+                <InputField
+                  title="To"
+                  name={`schedules.${sIndex}.slots.${index}.to`}
+                  type="time"
+                  register={register}
+                  error={errors.schedules?.[sIndex]?.slots?.[index]?.to}
+                />
+                <InputField
+                  title="Price ($)"
+                  name={`schedules.${sIndex}.slots.${index}.price`}
+                  type="number"
+                  placeholder="e.g. 45"
+                  register={register}
+                  error={errors.schedules?.[sIndex]?.slots?.[index]?.price}
+                />
+                <InputField
+                  title="Capacity (1-4)"
+                  name={`schedules.${sIndex}.slots.${index}.capacity`}
+                  type="number"
+                  register={register}
+                  error={errors.schedules?.[sIndex]?.slots?.[index]?.capacity}
+                />
               </div>
 
               <div className="flex items-center gap-3 pb-2">
@@ -215,7 +277,7 @@ const SlotFieldArray = ({ sIndex, control, register, errors }: any) => {
       <div className="flex justify-end">
         <button
           type="button"
-          onClick={() => append({ from: "", to: "", isBooked: false })}
+          onClick={() => append({ ...blankSlot })}
           className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-100 transition-all"
         >
           <Plus size={14} /> Add Slot

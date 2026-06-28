@@ -3,6 +3,8 @@
 import { useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
+import { fetchUrl } from "@/lib/fetchUrl";
+import { toast } from "sonner";
 
 const OTP_LENGTH = 6;
 
@@ -10,6 +12,7 @@ const VerifyOtp = () => {
   const router = useRouter();
   const [digits, setDigits] = useState<string[]>(Array(OTP_LENGTH).fill(""));
   const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
 
   const handleChange = (index: number, value: string) => {
@@ -32,7 +35,7 @@ const VerifyOtp = () => {
     }
   };
 
-  const onSubmit = (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const code = digits.join("");
 
@@ -41,10 +44,36 @@ const VerifyOtp = () => {
       return;
     }
 
-    // Mock verification until the OTP API is wired up — any 6-digit
-    // code is accepted for now.
+    const email = window.sessionStorage.getItem("reset-email");
+    if (!email) {
+      setError("Email session expired. Please request a new code.");
+      return;
+    }
+
     setError(null);
-    router.push("/reset-password");
+    setIsSubmitting(true);
+    try {
+      const response = await fetchUrl("/auth/verify-otp", {
+        method: "POST",
+        body: { email, otp: code },
+      });
+      const resetTicket = response.data?.resetTicket;
+      if (resetTicket) {
+        window.sessionStorage.setItem("reset-ticket", resetTicket);
+        toast.success("OTP verified! Please set your new password.");
+        router.push("/reset-password");
+      } else {
+        const errMsg = "Invalid OTP response received.";
+        setError(errMsg);
+        toast.error(errMsg);
+      }
+    } catch (err: any) {
+      const errMsg = err.message || "Invalid OTP code.";
+      setError(errMsg);
+      toast.error(errMsg);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -72,11 +101,12 @@ const VerifyOtp = () => {
                 inputsRef.current[index] = el;
               }}
               value={digit}
+              disabled={isSubmitting}
               onChange={(e) => handleChange(index, e.target.value)}
               onKeyDown={(e) => handleKeyDown(index, e)}
               inputMode="numeric"
               maxLength={1}
-              className="size-12 sm:size-14 rounded-xl border-2 border-gray-200 text-center text-xl font-bold text-[#111827] outline-none focus:border-[#2ea268] transition-colors"
+              className="size-12 sm:size-14 rounded-xl border-2 border-gray-200 text-center text-xl font-bold text-[#111827] outline-none focus:border-[#2ea268] transition-colors disabled:opacity-60"
             />
           ))}
         </div>
@@ -89,9 +119,10 @@ const VerifyOtp = () => {
 
         <button
           type="submit"
-          className="w-full rounded-2xl bg-[#142d22] py-4 text-[17px] font-bold text-white transition-all hover:bg-[#1a3a2e] hover:shadow-lg active:scale-[0.99]"
+          disabled={isSubmitting}
+          className="w-full rounded-2xl bg-[#142d22] py-4 text-[17px] font-bold text-white transition-all hover:bg-[#1a3a2e] hover:shadow-lg active:scale-[0.99] disabled:opacity-60"
         >
-          Continue
+          {isSubmitting ? "Verifying..." : "Continue"}
         </button>
       </form>
     </motion.div>

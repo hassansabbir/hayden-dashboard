@@ -8,6 +8,7 @@ type InputFieldProps = {
   type?: string;
   register: UseFormRegister<any>;
   error?: FieldError;
+  disabled?: boolean;
 };
 
 const InputField = ({
@@ -17,6 +18,7 @@ const InputField = ({
   type = "text",
   register,
   error,
+  disabled,
 }: InputFieldProps) => {
   return (
     <div className="space-y-3">
@@ -26,7 +28,13 @@ const InputField = ({
           {...register(name)}
           type={type}
           placeholder={placeholder}
-          className={`w-full rounded-lg bg-white border border-slate-200 px-6 py-3 text-[14px] text-gray-600 outline-none transition-all placeholder:text-[#9CA3AF] focus:border-[#0b3b0b]/40 focus:bg-white`}
+          disabled={disabled}
+          // A focused <input type="number"> silently changes value when the
+          // page is scrolled with the cursor over it (Chrome/Edge default
+          // behavior) — blur on wheel so scrolling past it on a long form
+          // never mutates whatever the user actually typed.
+          onWheel={type === "number" ? (e) => e.currentTarget.blur() : undefined}
+          className={`w-full rounded-lg bg-white border border-slate-200 px-6 py-3 text-[14px] text-gray-600 outline-none transition-all placeholder:text-[#9CA3AF] focus:border-[#0b3b0b]/40 focus:bg-white disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed`}
         />
 
         {error && (

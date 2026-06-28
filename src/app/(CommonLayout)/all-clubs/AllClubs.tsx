@@ -1,15 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm, SubmitHandler } from "react-hook-form";
 import { AnimatePresence, motion } from "framer-motion";
-import { MapPin, Mail, Clock, Plus, X, Building2, Info } from "lucide-react";
+import { MapPin, Mail, Clock, Plus, X, Building2, Info, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import RequireRole from "@/components/auth/RequireRole";
 import InputField from "@/components/form/InputField";
 import InputFieldPassword from "@/components/form/InputFieldPassword";
+import { fetchUrl } from "@/lib/fetchUrl";
 
-type ClubStatus = "Active" | "Pending";
+type ClubStatus = "Active" | "Pending" | "Suspended";
 
 interface ClubRow {
   id: string;
@@ -26,18 +28,18 @@ interface CreateClubForm {
   password: string;
 }
 
-const initialClubs: ClubRow[] = [
-  { id: "c1", name: "The Royal Ridges Estate", location: "Scottsdale, AZ", ownerEmail: "owner@royalridges.com", status: "Active", teeTimeCount: 24 },
-  { id: "c2", name: "Pinecrest Valley Links", location: "Asheville, NC", ownerEmail: "owner@pinecrestvalley.com", status: "Active", teeTimeCount: 18 },
-  { id: "c3", name: "Silver Oak Shores", location: "Naples, FL", ownerEmail: "owner@silveroakshores.com", status: "Active", teeTimeCount: 31 },
-  { id: "c4", name: "Highland Meadows", location: "Boulder, CO", ownerEmail: "owner@highlandmeadows.com", status: "Pending", teeTimeCount: 0 },
-  { id: "c5", name: "Cedar Hollow Country Club", location: "Austin, TX", ownerEmail: "owner@cedarhollow.com", status: "Active", teeTimeCount: 12 },
-  { id: "c6", name: "Bluewater Bay Golf Club", location: "Charleston, SC", ownerEmail: "owner@bluewaterbay.com", status: "Pending", teeTimeCount: 0 },
-];
+const toClubStatus = (status: string): ClubStatus => {
+  if (status === "ACTIVE") return "Active";
+  if (status === "SUSPENDED") return "Suspended";
+  return "Pending";
+};
 
 const AllClubs = () => {
-  const [clubList, setClubList] = useState<ClubRow[]>(initialClubs);
+  const [clubList, setClubList] = useState<ClubRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const {
     register,
@@ -46,20 +48,58 @@ const AllClubs = () => {
     formState: { errors },
   } = useForm<CreateClubForm>();
 
-  const onSubmit: SubmitHandler<CreateClubForm> = (data) => {
-    // Add the new club with basic information and set status to Pending
-    const newClub: ClubRow = {
-      id: "c" + (clubList.length + 1),
-      name: data.name,
-      location: "Pending Setup",
-      ownerEmail: data.email,
-      status: "Pending",
-      teeTimeCount: 0,
+  useEffect(() => {
+    const loadClubs = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const res = await fetchUrl("/courses/admin/all?limit=100");
+        const rows: ClubRow[] = res.data.map((course: any) => ({
+          id: course.id,
+          name: course.name,
+          location: course.location,
+          ownerEmail: course.owner?.email ?? "—",
+          status: toClubStatus(course.status),
+          teeTimeCount: course.teeTimeCount,
+        }));
+        setClubList(rows);
+      } catch (err: any) {
+        setLoadError(err.message || "Failed to load clubs.");
+      } finally {
+        setIsLoading(false);
+      }
     };
 
-    setClubList([newClub, ...clubList]);
-    setIsModalOpen(false);
-    reset();
+    loadClubs();
+  }, []);
+
+  const onSubmit: SubmitHandler<CreateClubForm> = async (data) => {
+    setIsSubmitting(true);
+    try {
+      const res = await fetchUrl("/courses", {
+        method: "POST",
+        body: data,
+      });
+      const course = res.data;
+
+      const newClub: ClubRow = {
+        id: course._id,
+        name: course.name,
+        location: course.location,
+        ownerEmail: data.email,
+        status: toClubStatus(course.status),
+        teeTimeCount: 0,
+      };
+
+      setClubList([newClub, ...clubList]);
+      setIsModalOpen(false);
+      reset();
+      toast.success("Club created successfully!");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create club.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -96,48 +136,73 @@ const AllClubs = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {clubList.map((club) => (
-                <tr key={club.id} className="hover:bg-gray-50/50 transition-colors">
-                  <td className="px-6 py-5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-[#eefaf3] flex items-center justify-center text-[#2ea268] font-bold shrink-0">
-                        {club.name[0]}
-                      </div>
-                      <span className="font-bold text-gray-900">{club.name}</span>
+              {isLoading ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-12 text-center text-gray-400">
+                    <div className="flex items-center justify-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Loading clubs...
                     </div>
-                  </td>
-                  <td className="px-6 py-5 text-gray-500">
-                    <div className="flex items-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-gray-300" />
-                      {club.location}
-                    </div>
-                  </td>
-                  <td className="px-6 py-5 text-gray-500">
-                    <div className="flex items-center gap-1.5">
-                      <Mail className="w-3.5 h-3.5 text-gray-300" />
-                      {club.ownerEmail}
-                    </div>
-                  </td>
-                  <td className="px-6 py-5 text-center">
-                    <div className="flex items-center justify-center gap-1.5 text-gray-900 font-bold">
-                      <Clock className="w-3.5 h-3.5 text-gray-300" />
-                      {club.teeTimeCount}
-                    </div>
-                  </td>
-                  <td className="px-6 py-5 text-right">
-                    <span
-                      className={cn(
-                        "px-3 py-1 rounded-full text-xs font-bold border",
-                        club.status === "Active"
-                          ? "bg-green-50 text-green-600 border-green-100"
-                          : "bg-orange-50 text-orange-600 border-orange-100"
-                      )}
-                    >
-                      {club.status}
-                    </span>
                   </td>
                 </tr>
-              ))}
+              ) : loadError ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-12 text-center text-red-500 text-sm font-medium">
+                    {loadError}
+                  </td>
+                </tr>
+              ) : clubList.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-12 text-center text-gray-400">
+                    No clubs registered yet.
+                  </td>
+                </tr>
+              ) : (
+                clubList.map((club) => (
+                  <tr key={club.id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="px-6 py-5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-[#eefaf3] flex items-center justify-center text-[#2ea268] font-bold shrink-0">
+                          {club.name[0]}
+                        </div>
+                        <span className="font-bold text-gray-900">{club.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-5 text-gray-500">
+                      <div className="flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-gray-300" />
+                        {club.location}
+                      </div>
+                    </td>
+                    <td className="px-6 py-5 text-gray-500">
+                      <div className="flex items-center gap-1.5">
+                        <Mail className="w-3.5 h-3.5 text-gray-300" />
+                        {club.ownerEmail}
+                      </div>
+                    </td>
+                    <td className="px-6 py-5 text-center">
+                      <div className="flex items-center justify-center gap-1.5 text-gray-900 font-bold">
+                        <Clock className="w-3.5 h-3.5 text-gray-300" />
+                        {club.teeTimeCount}
+                      </div>
+                    </td>
+                    <td className="px-6 py-5 text-right">
+                      <span
+                        className={cn(
+                          "px-3 py-1 rounded-full text-xs font-bold border",
+                          club.status === "Active"
+                            ? "bg-green-50 text-green-600 border-green-100"
+                            : club.status === "Suspended"
+                            ? "bg-red-50 text-red-600 border-red-100"
+                            : "bg-orange-50 text-orange-600 border-orange-100"
+                        )}
+                      >
+                        {club.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -225,15 +290,17 @@ const AllClubs = () => {
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="flex-1 py-3 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 text-sm font-semibold transition-all cursor-pointer text-center"
+                    disabled={isSubmitting}
+                    className="flex-1 py-3 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 text-sm font-semibold transition-all cursor-pointer text-center disabled:opacity-60"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition-all cursor-pointer shadow-lg shadow-emerald-600/10 text-center"
+                    disabled={isSubmitting}
+                    className="flex-1 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition-all cursor-pointer shadow-lg shadow-emerald-600/10 text-center disabled:opacity-60"
                   >
-                    Create Club
+                    {isSubmitting ? "Creating..." : "Create Club"}
                   </button>
                 </div>
               </form>

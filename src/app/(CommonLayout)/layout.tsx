@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/layout/Header";
 import Sidebar from "@/components/layout/Sidebar";
+import ForcePasswordReset from "@/components/auth/ForcePasswordReset";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function RootLayout({
@@ -26,6 +27,10 @@ export default function RootLayout({
         Loading...
       </div>
     );
+  }
+
+  if (user.mustResetPassword) {
+    return <ForcePasswordReset />;
   }
 
   return (

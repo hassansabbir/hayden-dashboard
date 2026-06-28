@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import InputField from "@/components/form/InputField";
 import InputFieldPassword from "@/components/form/InputFieldPassword";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 interface SignInFormValues {
   email: string;
@@ -34,10 +35,13 @@ const SignIn = () => {
     setIsSubmitting(false);
 
     if (!result.success) {
-      setFormError(result.message ?? "Unable to sign in.");
+      const errMsg = result.message ?? "Unable to sign in.";
+      setFormError(errMsg);
+      toast.error(errMsg);
       return;
     }
 
+    toast.success("Welcome back! Logged in successfully.");
     router.replace("/");
   };
 

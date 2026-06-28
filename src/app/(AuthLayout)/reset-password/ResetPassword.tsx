@@ -5,6 +5,8 @@ import { useForm } from "react-hook-form";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import InputFieldPassword from "@/components/form/InputFieldPassword";
+import { fetchUrl } from "@/lib/fetchUrl";
+import { toast } from "sonner";
 
 interface ResetFormValues {
   password: string;
@@ -14,6 +16,7 @@ interface ResetFormValues {
 const ResetPassword = () => {
   const router = useRouter();
   const [formError, setFormError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const {
     register,
@@ -23,16 +26,37 @@ const ResetPassword = () => {
     defaultValues: { password: "", confirmPassword: "" },
   });
 
-  const onSubmit = (data: ResetFormValues) => {
+  const onSubmit = async (data: ResetFormValues) => {
     if (data.password !== data.confirmPassword) {
       setFormError("Passwords do not match.");
       return;
     }
 
-    // Mock reset until the password API is wired up.
+    const resetTicket = window.sessionStorage.getItem("reset-ticket");
+    if (!resetTicket) {
+      setFormError("Reset ticket expired. Please request a new code.");
+      return;
+    }
+
     setFormError(null);
-    window.sessionStorage.removeItem("reset-email");
-    router.push("/sign-in");
+    setIsSubmitting(true);
+    try {
+      await fetchUrl("/auth/reset-password", {
+        method: "POST",
+        body: { resetTicket, password: data.password },
+      });
+      
+      window.sessionStorage.removeItem("reset-email");
+      window.sessionStorage.removeItem("reset-ticket");
+      toast.success("Password reset successfully! Please sign in with your new password.");
+      router.push("/sign-in");
+    } catch (err: any) {
+      const errMsg = err.message || "Failed to reset password.";
+      setFormError(errMsg);
+      toast.error(errMsg);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -73,9 +97,10 @@ const ResetPassword = () => {
 
         <button
           type="submit"
-          className="mt-2 w-full rounded-2xl bg-[#142d22] py-4 text-[17px] font-bold text-white transition-all hover:bg-[#1a3a2e] hover:shadow-lg active:scale-[0.99]"
+          disabled={isSubmitting}
+          className="mt-2 w-full rounded-2xl bg-[#142d22] py-4 text-[17px] font-bold text-white transition-all hover:bg-[#1a3a2e] hover:shadow-lg active:scale-[0.99] disabled:opacity-60"
         >
-          Reset Password
+          {isSubmitting ? "Resetting..." : "Reset Password"}
         </button>
       </form>
     </motion.div>

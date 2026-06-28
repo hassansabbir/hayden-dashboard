@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useForm, useFieldArray, SubmitHandler, Controller } from "react-hook-form";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -13,12 +14,16 @@ import {
   Layers,
   Sparkles,
   X,
-  Star
+  Star,
+  Loader2
 } from "lucide-react";
+import { toast } from "sonner";
 import ImageUpload from "@/components/form/ImageUpload";
 import InputField from "@/components/form/InputField";
+import SelectField from "@/components/form/SelectField";
 import TextareaField from "@/components/form/TextareaField";
 import RequireRole from "@/components/auth/RequireRole";
+import { fetchUrl, getMediaUrl } from "@/lib/fetchUrl";
 
 interface SellingPoint {
   title: string;
@@ -32,6 +37,7 @@ interface Facility {
 
 interface GalleryImage {
   src: string | File;
+  mediaId?: string;
 }
 
 interface ClubFormValues {
@@ -67,74 +73,60 @@ interface ClubFormValues {
   gallery: GalleryImage[];
 }
 
-const EditClub = () => {
-  const existingClubInfo: ClubFormValues = {
-    name: "The Royal Ridges Estate",
-    location: "Orchard Valley, CA",
-    rating: 4.9,
-    reviewsCount: 248,
-    summary:
-      "Excellence in every swing. Experience the pinnacle of sporting luxury on our award-winning championship terrain, designed for golfers who appreciate architectural precision and breathtaking valley landscapes.",
-    description:
-      "Designed originally in 1924 and beautifully revitalized for the modern competitor, The Royal Ridges Estate seamlessly blends traditional design principles with the rugged elevation changes of the orchard foothills. The course is characterized by strategic layouts that reward bold shot-making while offering safe bail-out routes for the conservative player. Meticulously groomed by a dedicated agronomy team, the fairways and greens provide tournament-level playability year-round.",
-    image: "https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?q=80&w=2000&auto=format&fit=crop",
-    stats: {
-      yardage: "7,200",
-      par: 72,
-      slope: 145,
-      rating: 74.8,
-      holes: 18,
-      tees: 5,
-      elevation: "180 ft",
-      avgTime: "4.5h",
-      courseType: "Parkland / Ridge",
-      difficulty: "Challenging",
-    },
-    sellingPoints: [
-      {
-        title: "Championship Layout",
-        description: "Masterfully designed routing that tests every club in your bag with fair but demanding hazards.",
-      },
-      {
-        title: "Scenic Valley Views",
-        description: "Stunning panoramic backdrops of the Orchard Ridge that offer a majestic and serene atmosphere.",
-      },
-      {
-        title: "Fast A-4 Greens",
-        description: "Immaculate green surfaces cutting-edge bentgrass rolling true and fast at a Stimpmeter rating of 11.5+.",
-      },
-      {
-        title: "Strategic Bunkering",
-        description: "Over 80 meticulously placed white-sand bunkers that challenge your course management and placement.",
-      },
-    ],
-    facilities: [
-      { name: "350-Yard Driving Range", description: "Grass tees with laser-measured targets and premium practice balls." },
-      { name: "15,000 sq ft Putting Green", description: "Expansive green matching the slope and speed of the course." },
-      { name: "Dedicated Chipping Area", description: "Practice pitch shots from various lies onto a dedicated green." },
-      { name: "Greenside Bunker Practice", description: "Varied sand depths to hone your sand saves before teeing off." },
-      { name: "Golf Academy", description: "PGA-certified instructors offering video analysis and private instruction." },
-    ],
-    signatureHole: {
-      number: "14",
-      name: "The Chasm",
-      par: 4,
-      yardage: 445,
-      notes: "A dramatic par-4 requiring a precise tee shot over a deep forested ravine. A conservative play to the left fairway leaves a long iron into a double-tiered green. Playing closer to the ridge on the right gives a shorter wedge entry but risks going into the canyon.",
-      image: "https://images.unsplash.com/photo-1593111774240-d529f12cf4bb?auto=format&fit=crop&w=1200&q=80",
-    },
-    gallery: [
-      { src: "https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?auto=format&fit=crop&w=800&q=80" },
-      { src: "https://images.unsplash.com/photo-1535131749006-b7f58c99034b?auto=format&fit=crop&w=800&q=80" },
-      { src: "https://images.unsplash.com/photo-1613149817748-eb09859f518e?auto=format&fit=crop&w=800&q=80" },
-      { src: "https://images.unsplash.com/photo-1592919505780-303950717480?auto=format&fit=crop&w=800&q=80" },
-      { src: "https://images.unsplash.com/photo-1561214078-f3247647fc5e?auto=format&fit=crop&w=800&q=80" },
-      { src: "https://images.unsplash.com/photo-1500964757637-c85e8a162699?auto=format&fit=crop&w=800&q=80" },
-    ],
-  };
+const blankClubInfo: ClubFormValues = {
+  name: "",
+  location: "",
+  rating: 0,
+  reviewsCount: 0,
+  summary: "",
+  description: "",
+  image: "",
+  stats: {
+    yardage: "",
+    par: 0,
+    slope: 0,
+    rating: 0,
+    holes: 18,
+    tees: 0,
+    elevation: "",
+    avgTime: "",
+    courseType: "",
+    difficulty: "",
+  },
+  sellingPoints: [
+    { title: "", description: "" },
+    { title: "", description: "" },
+    { title: "", description: "" },
+    { title: "", description: "" },
+  ],
+  facilities: [],
+  signatureHole: {
+    number: "",
+    name: "",
+    par: 0,
+    yardage: 0,
+    notes: "",
+    image: "",
+  },
+  gallery: [],
+};
 
-  const { register, control, handleSubmit, formState: { errors } } = useForm<ClubFormValues>({
-    defaultValues: existingClubInfo
+const MEDIA_TYPE = {
+  HERO: "COURSE_HERO",
+  GALLERY: "COURSE_GALLERY",
+  SIGNATURE_HOLE: "SIGNATURE_HOLE",
+} as const;
+
+const EditClub = () => {
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [courseId, setCourseId] = useState<string | null>(null);
+  const [heroImageId, setHeroImageId] = useState<string | undefined>(undefined);
+  const [signatureHoleImageId, setSignatureHoleImageId] = useState<string | undefined>(undefined);
+
+  const { register, control, handleSubmit, reset, setError, formState: { errors } } = useForm<ClubFormValues>({
+    defaultValues: blankClubInfo
   });
 
   const { fields: facilityFields, append: appendFacility, remove: removeFacility } = useFieldArray({
@@ -147,9 +139,219 @@ const EditClub = () => {
     name: "gallery"
   });
 
-  const onSubmit: SubmitHandler<ClubFormValues> = (data) => {
-    console.log("Updated Club Profile Data:", data);
-    alert("Club profile updated! Check browser developer console to view values.");
+  useEffect(() => {
+    const loadCourse = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const res = await fetchUrl("/courses/mine");
+        const course = res.data;
+
+        setCourseId(course._id);
+        setHeroImageId(course.heroImage?._id);
+        setSignatureHoleImageId(course.signatureHole?.image?._id);
+
+        const sellingPoints: SellingPoint[] = [0, 1, 2, 3].map(
+          (i) => course.sellingPoints?.[i] ?? { title: "", description: "" }
+        );
+
+        reset({
+          name: course.name ?? "",
+          location: course.location ?? "",
+          rating: course.rating ?? 0,
+          reviewsCount: course.reviewsCount ?? 0,
+          summary: course.summary ?? "",
+          description: course.description ?? "",
+          image: getMediaUrl(course.heroImage?.url),
+          stats: {
+            yardage: course.stats?.yardage ?? "",
+            par: course.stats?.par ?? 0,
+            slope: course.stats?.slope ?? 0,
+            rating: course.stats?.rating ?? 0,
+            holes: course.stats?.holes ?? 18,
+            tees: course.stats?.tees ?? 0,
+            elevation: course.stats?.elevation ?? "",
+            avgTime: course.stats?.avgTime ?? "",
+            courseType: course.stats?.courseType ?? "",
+            difficulty: course.stats?.difficulty ?? "",
+          },
+          sellingPoints,
+          facilities: course.facilities ?? [],
+          signatureHole: {
+            number: course.signatureHole?.number ?? "",
+            name: course.signatureHole?.name ?? "",
+            par: course.signatureHole?.par ?? 0,
+            yardage: course.signatureHole?.yardage ?? 0,
+            notes: course.signatureHole?.notes ?? "",
+            image: getMediaUrl(course.signatureHole?.image?.url),
+          },
+          gallery: (course.gallery ?? []).map((media: any) => ({
+            src: getMediaUrl(media.url),
+            mediaId: media._id,
+          })),
+        });
+      } catch (err: any) {
+        setLoadError(err.message || "Failed to load club profile.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadCourse();
+  }, [reset]);
+
+  const uploadImage = async (file: File, type: string): Promise<string> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("type", type);
+    if (courseId) {
+      formData.append("relatedModel", "Course");
+      formData.append("relatedTo", courseId);
+    }
+    const res = await fetchUrl("/media/upload", { method: "POST", body: formData });
+    return res.data._id;
+  };
+
+  const onSubmit: SubmitHandler<ClubFormValues> = async (data) => {
+    setIsSaving(true);
+    try {
+      const newHeroImageId = data.image instanceof File
+        ? await uploadImage(data.image, MEDIA_TYPE.HERO)
+        : heroImageId;
+
+      const newSignatureHoleImageId = data.signatureHole.image instanceof File
+        ? await uploadImage(data.signatureHole.image, MEDIA_TYPE.SIGNATURE_HOLE)
+        : signatureHoleImageId;
+
+      const galleryIds = (
+        await Promise.all(
+          data.gallery.map(async (item) => {
+            if (item.src instanceof File) return uploadImage(item.src, MEDIA_TYPE.GALLERY);
+            return item.mediaId;
+          })
+        )
+      ).filter((id): id is string => Boolean(id));
+
+      // The backend validates stats/signatureHole/sellingPoints as
+      // all-or-nothing groups — a freshly created club starts with none of
+      // them filled in, so an incomplete group must be left out of the
+      // payload entirely rather than sent half-blank (which would 400 and
+      // block saving the fields that *are* filled in).
+      const filledSellingPoints = data.sellingPoints.filter(
+        (sp) => sp.title.trim() && sp.description.trim()
+      );
+      const filledFacilities = data.facilities.filter(
+        (f) => f.name.trim() && f.description.trim()
+      );
+      const isStatsFilled = Boolean(
+        data.stats.yardage.trim() &&
+          data.stats.par > 0 &&
+          data.stats.slope > 0 &&
+          data.stats.holes > 0 &&
+          data.stats.tees > 0 &&
+          data.stats.rating > 0 &&
+          data.stats.elevation.trim() &&
+          data.stats.avgTime.trim() &&
+          data.stats.courseType.trim() &&
+          data.stats.difficulty.trim()
+      );
+      const isSignatureHoleFilled = Boolean(
+        data.signatureHole.number.trim() &&
+          data.signatureHole.name.trim() &&
+          data.signatureHole.notes.trim() &&
+          data.signatureHole.par > 0 &&
+          data.signatureHole.yardage > 0 &&
+          newSignatureHoleImageId
+      );
+
+      const payload: Record<string, unknown> = {
+        name: data.name,
+        location: data.location,
+        facilities: filledFacilities,
+        gallery: galleryIds,
+      };
+      if (data.summary.trim()) payload.summary = data.summary;
+      if (data.description.trim()) payload.description = data.description;
+      if (newHeroImageId) payload.heroImage = newHeroImageId;
+      if (isStatsFilled) payload.stats = data.stats;
+      if (filledSellingPoints.length > 0) payload.sellingPoints = filledSellingPoints;
+      if (isSignatureHoleFilled) {
+        payload.signatureHole = { ...data.signatureHole, image: newSignatureHoleImageId };
+      }
+
+      // Each group above is all-or-nothing server-side. If the user clearly
+      // started filling one in but left it incomplete, it gets silently
+      // dropped from the payload above — surface that instead of staying quiet.
+      const isStatsTouched = Boolean(
+        data.stats.yardage.trim() ||
+          data.stats.elevation.trim() ||
+          data.stats.avgTime.trim() ||
+          data.stats.courseType.trim() ||
+          data.stats.difficulty.trim() ||
+          data.stats.par > 0 ||
+          data.stats.slope > 0 ||
+          data.stats.rating > 0 ||
+          data.stats.tees > 0
+      );
+      const isSignatureHoleTouched = Boolean(
+        data.signatureHole.number.trim() ||
+          data.signatureHole.name.trim() ||
+          data.signatureHole.notes.trim() ||
+          data.signatureHole.par > 0 ||
+          data.signatureHole.yardage > 0 ||
+          data.signatureHole.image
+      );
+      const isSellingPointsTouched = data.sellingPoints.some((sp) => sp.title.trim() || sp.description.trim());
+
+      const skippedSections: string[] = [];
+      if (isStatsTouched && !isStatsFilled) skippedSections.push("Course Specs & Metrics");
+      if (isSignatureHoleTouched && !isSignatureHoleFilled) skippedSections.push("Signature Hole Showcase");
+      if (isSellingPointsTouched && filledSellingPoints.length === 0) skippedSections.push("Selling Points");
+      if (filledFacilities.length < data.facilities.length) skippedSections.push("Practice & Playing Facilities (incomplete entries)");
+
+      const res = await fetchUrl("/courses/mine", { method: "PATCH", body: payload });
+      const course = res.data;
+
+      setHeroImageId(course.heroImage?._id);
+      setSignatureHoleImageId(course.signatureHole?.image?._id);
+      reset(
+        {
+          ...data,
+          image: getMediaUrl(course.heroImage?.url),
+          signatureHole: { ...data.signatureHole, image: getMediaUrl(course.signatureHole?.image?.url) },
+          gallery: (course.gallery ?? []).map((media: any) => ({
+            src: getMediaUrl(media.url),
+            mediaId: media._id,
+          })),
+        },
+        { keepDirty: false }
+      );
+
+      if (skippedSections.length > 0) {
+        toast.warning(
+          `Saved, but these sections weren't — fill in every field in each before saving: ${skippedSections.join(", ")}.`,
+          { duration: 8000 }
+        );
+      } else {
+        toast.success("Club profile updated!");
+      }
+    } catch (err: any) {
+      const fieldErrors: { field?: string; message: string }[] | undefined = err.data?.errors;
+      if (fieldErrors?.length) {
+        fieldErrors.forEach((fe) => {
+          if (fe.field) {
+            // Server field paths are dot-joined (e.g. "stats.holes"), which
+            // matches react-hook-form's nested path syntax directly.
+            setError(fe.field as any, { type: "server", message: fe.message });
+          }
+        });
+        toast.error("Some fields couldn't be saved — see the highlighted errors below.");
+      } else {
+        toast.error(err.message || "Failed to update club profile.");
+      }
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -172,6 +374,14 @@ const EditClub = () => {
             </div>
           </div>
 
+          {isLoading ? (
+            <div className="flex items-center justify-center gap-2 text-slate-400 py-24">
+              <Loader2 className="w-5 h-5 animate-spin" />
+              Loading club profile...
+            </div>
+          ) : loadError ? (
+            <div className="text-center text-red-500 font-medium py-24">{loadError}</div>
+          ) : (
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-12">
 
             {/* SECTION 1: CORE BRAND DETAILS */}
@@ -190,11 +400,12 @@ const EditClub = () => {
                 <div className="space-y-6">
                   <InputField title="Club Name" name="name" register={register} error={errors.name} />
                   <InputField title="Location (City, State)" name="location" register={register} error={errors.location} />
-                  
+
                   <div className="grid grid-cols-2 gap-4">
-                    <InputField title="Average Rating" name="rating" type="number" register={register} error={errors.rating} />
-                    <InputField title="Verified Reviews Count" name="reviewsCount" type="number" register={register} error={errors.reviewsCount} />
+                    <InputField title="Average Rating" name="rating" type="number" register={register} error={errors.rating} disabled />
+                    <InputField title="Verified Reviews Count" name="reviewsCount" type="number" register={register} error={errors.reviewsCount} disabled />
                   </div>
+                  <p className="text-xs text-slate-400 -mt-2">Rating and review count are calculated automatically from player reviews.</p>
 
                   <TextareaField title="Brief Summary (Hero Tagline)" name="summary" register={register} error={errors.summary} />
                   <TextareaField title="Detailed Course Overview Description" name="description" register={register} error={errors.description} rows={6} />
@@ -222,7 +433,16 @@ const EditClub = () => {
                 <InputField title="Par Rating" name="stats.par" type="number" register={register} error={errors.stats?.par} />
                 <InputField title="Slope Rating" name="stats.slope" type="number" register={register} error={errors.stats?.slope} />
                 <InputField title="Course Rating" name="stats.rating" type="number" register={register} error={errors.stats?.rating} />
-                <InputField title="Number of Holes" name="stats.holes" type="number" register={register} error={errors.stats?.holes} />
+                <SelectField
+                  title="Number of Holes (Course Total)"
+                  name="stats.holes"
+                  options={[
+                    { label: "9 Holes", value: 9 },
+                    { label: "18 Holes", value: 18 },
+                  ]}
+                  register={register}
+                  error={errors.stats?.holes}
+                />
                 <InputField title="Number of Tee Boxes" name="stats.tees" type="number" register={register} error={errors.stats?.tees} />
                 <InputField title="Elevation Changes" name="stats.elevation" register={register} error={errors.stats?.elevation} />
                 <InputField title="Average Round Time" name="stats.avgTime" register={register} error={errors.stats?.avgTime} />
@@ -336,7 +556,7 @@ const EditClub = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                 <div className="space-y-6">
                   <div className="grid grid-cols-2 gap-4">
-                    <InputField title="Hole Number" name="signatureHole.number" register={register} error={errors.signatureHole?.number} />
+                    <InputField title="Which Hole # (e.g. 14)" name="signatureHole.number" register={register} error={errors.signatureHole?.number} />
                     <InputField title="Hole Name" name="signatureHole.name" register={register} error={errors.signatureHole?.name} />
                   </div>
 
@@ -409,14 +629,20 @@ const EditClub = () => {
               </p>
               <button
                 type="submit"
-                className="group flex items-center justify-center gap-3 bg-emerald-600 hover:bg-emerald-700 text-white px-12 py-5 rounded-2xl font-bold text-lg transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-xl cursor-pointer"
+                disabled={isSaving}
+                className="group flex items-center justify-center gap-3 bg-emerald-600 hover:bg-emerald-700 text-white px-12 py-5 rounded-2xl font-bold text-lg transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-xl cursor-pointer disabled:opacity-60 disabled:hover:scale-100"
               >
-                Publish Updates
-                <CheckCircle2 size={24} className="group-hover:animate-bounce" />
+                {isSaving ? "Publishing..." : "Publish Updates"}
+                {isSaving ? (
+                  <Loader2 size={24} className="animate-spin" />
+                ) : (
+                  <CheckCircle2 size={24} className="group-hover:animate-bounce" />
+                )}
               </button>
             </div>
 
           </form>
+          )}
         </motion.div>
       </div>
     </RequireRole>

@@ -40,7 +40,7 @@ const ImageUpload = ({
 
   return (
     <div className={className}>
-      <label className="block text-[11px] font-bold tracking-[0.1em] text-[#9CA3AF] uppercase mb-2">{label}</label>
+      <label className="block text-[11px] font-bold tracking-widest text-[#9CA3AF] uppercase mb-2">{label}</label>
       <div
         onClick={() => fileInputRef.current?.click()}
         className={`relative group cursor-pointer overflow-hidden rounded-2xl border-2 border-dashed border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/30 transition-all ${aspectRatio} bg-slate-50 flex flex-col items-center justify-center gap-2`}

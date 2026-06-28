@@ -7,6 +7,9 @@ import {
   useEffect,
   ReactNode,
 } from "react";
+import { fetchUrl } from "@/lib/fetchUrl";
+import { setClientToken } from "@/lib/apiToken";
+import { decodeAccessToken } from "@/lib/jwt";
 
 export type Role = "admin" | "club_owner";
 
@@ -15,38 +18,18 @@ export interface AuthUser {
   email: string;
   role: Role;
   club?: string;
+  mustResetPassword: boolean;
 }
 
-interface MockAccount extends AuthUser {
-  password: string;
-}
-
-// Mock accounts until a real API is wired up. `login` is async and
-// returns a result object so swapping the body for a real API call
-// later doesn't change any caller.
-const MOCK_ACCOUNTS: MockAccount[] = [
-  {
-    name: "Platform Admin",
-    email: "admin@teaitup.com",
-    password: "Admin@123",
-    role: "admin",
-  },
-  {
-    name: "Sarah Owens",
-    email: "owner@royalridges.com",
-    password: "Owner@123",
-    role: "club_owner",
-    club: "The Royal Ridges Estate",
-  },
-];
-
-const STORAGE_KEY = "tea-it-up-dashboard-user";
+const toRole = (backendRole: string): Role =>
+  backendRole === "SUPER_ADMIN" || backendRole === "ADMIN" ? "admin" : "club_owner";
 
 interface AuthContextType {
   user: AuthUser | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
+  refreshSession: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -55,46 +38,87 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        setUser(JSON.parse(stored));
-      } catch {
-        window.localStorage.removeItem(STORAGE_KEY);
+  // Mints a fresh access token from the refresh cookie. The server embeds
+  // mustResetPassword in the token itself and blocks every route except
+  // /auth/change-password while it's true — so that claim is read straight
+  // off the token instead of via GET /users/me, which would just 403.
+  const refreshSession = async () => {
+    try {
+      const refreshResult = await fetchUrl("/auth/refresh-token", { method: "POST" });
+      const accessToken = refreshResult.data?.accessToken;
+      if (!accessToken) {
+        setUser(null);
+        return;
       }
+
+      setClientToken(accessToken);
+      const claims = decodeAccessToken(accessToken);
+
+      if (claims?.mustResetPassword) {
+        setUser({ name: "", email: "", role: toRole(claims.role), mustResetPassword: true });
+        return;
+      }
+
+      const profileResult = await fetchUrl("/users/me");
+      const dbUser = profileResult.data;
+      setUser({
+        name: dbUser.fullName,
+        email: dbUser.email,
+        role: toRole(dbUser.role),
+        club: dbUser.course ? String(dbUser.course) : undefined,
+        mustResetPassword: false,
+      });
+    } catch (err) {
+      console.log("No active session or session restoration failed");
+      setUser(null);
     }
-    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    refreshSession().finally(() => setIsLoading(false));
   }, []);
 
   const login: AuthContextType["login"] = async (email, password) => {
-    const account = MOCK_ACCOUNTS.find(
-      (acc) => acc.email.toLowerCase() === email.toLowerCase()
-    );
+    try {
+      const result = await fetchUrl("/auth/login", {
+        method: "POST",
+        body: { email, password },
+      });
 
-    if (!account || account.password !== password) {
-      return { success: false, message: "Invalid email or password." };
+      const { accessToken, user: dbUser } = result.data;
+      setClientToken(accessToken);
+
+      const authUser: AuthUser = {
+        name: dbUser.fullName,
+        email: dbUser.email,
+        role: toRole(dbUser.role),
+        club: dbUser.course ? String(dbUser.course) : undefined,
+        mustResetPassword: Boolean(dbUser.mustResetPassword),
+      };
+
+      setUser(authUser);
+      return { success: true };
+    } catch (err: any) {
+      return {
+        success: false,
+        message: err.message || "Invalid email or password."
+      };
     }
-
-    const authUser: AuthUser = {
-      name: account.name,
-      email: account.email,
-      role: account.role,
-      club: account.club,
-    };
-
-    setUser(authUser);
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(authUser));
-    return { success: true };
   };
 
-  const logout = () => {
-    setUser(null);
-    window.localStorage.removeItem(STORAGE_KEY);
+  const logout = async () => {
+    try {
+      await fetchUrl("/auth/logout", { method: "POST" });
+    } catch (err) {
+      console.error("Logout request failed", err);
+    } finally {
+      setClientToken("");
+      setUser(null);
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, logout, refreshSession }}>
       {children}
     </AuthContext.Provider>
   );

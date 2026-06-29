@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import VerifyOtp from "./VerifyOtp";
 
 export const metadata: Metadata = {
-  title: "Verify OTP | Tea-It-Up Admin",
+  title: "Verify OTP | Tee-It-Up Admin",
 };
 
 export default function VerifyOtpPage() {

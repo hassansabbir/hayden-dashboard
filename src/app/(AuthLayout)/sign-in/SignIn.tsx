@@ -91,13 +91,7 @@ const SignIn = () => {
         </button>
       </form>
 
-      <div className="mt-8 rounded-xl bg-[#f7fdfa] border border-[#2ea268]/10 p-4 text-xs text-[#4B6548] space-y-1">
-        <p className="font-bold uppercase tracking-wider text-[10px] text-[#2ea268]">
-          Demo credentials
-        </p>
-        <p>Admin: admin@teaitup.com / Admin@123</p>
-        <p>Club Owner: owner@royalridges.com / Owner@123</p>
-      </div>
+      
     </motion.div>
   );
 };

@@ -21,12 +21,20 @@ export default function RootLayout({
     }
   }, [isLoading, user, router]);
 
-  if (isLoading || !user) {
+  // While session is being restored or user just logged in and state is
+  // propagating, show a neutral loading screen — do NOT redirect yet.
+  if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f8fafc] text-gray-400">
         Loading...
       </div>
     );
+  }
+
+  // After loading is complete, if there is still no user the useEffect above
+  // will redirect. Render nothing in the meantime to avoid a flash.
+  if (!user) {
+    return null;
   }
 
   if (user.mustResetPassword) {

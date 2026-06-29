@@ -3,13 +3,13 @@
 import { useEffect, useState } from "react";
 import { useForm, SubmitHandler } from "react-hook-form";
 import { AnimatePresence, motion } from "framer-motion";
-import { MapPin, Mail, Clock, Plus, X, Building2, Info, Loader2 } from "lucide-react";
+import { MapPin, Mail, Clock, Plus, X, Building2, Info, Loader2, CheckCircle2, AlertCircle, Sparkles, Trophy, Check, HelpCircle } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import RequireRole from "@/components/auth/RequireRole";
 import InputField from "@/components/form/InputField";
 import InputFieldPassword from "@/components/form/InputFieldPassword";
-import { fetchUrl } from "@/lib/fetchUrl";
+import { fetchUrl, getMediaUrl } from "@/lib/fetchUrl";
 
 type ClubStatus = "Active" | "Pending" | "Suspended";
 
@@ -19,7 +19,33 @@ interface ClubRow {
   location: string;
   ownerEmail: string;
   status: ClubStatus;
+  isFeatured: boolean;
   teeTimeCount: number;
+  summary?: string;
+  description?: string;
+  heroImage?: { url: string } | null;
+  stats?: {
+    yardage: string;
+    par: number;
+    slope: number;
+    rating: number;
+    holes: number;
+    tees: number;
+    elevation: string;
+    avgTime: string;
+    courseType: string;
+    difficulty: string;
+  } | null;
+  signatureHole?: {
+    number: string;
+    name: string;
+    par: number;
+    yardage: number;
+    notes: string;
+    image?: { url: string } | null;
+  } | null;
+  sellingPoints?: { title: string; description: string }[];
+  facilities?: { name: string; description: string }[];
 }
 
 interface CreateClubForm {
@@ -34,12 +60,27 @@ const toClubStatus = (status: string): ClubStatus => {
   return "Pending";
 };
 
+const checkCompleteness = (club: ClubRow) => {
+  const completeness = {
+    summary: !!club.summary && club.summary.trim().length > 0,
+    description: !!club.description && club.description.trim().length > 0,
+    heroImage: !!club.heroImage && !!club.heroImage.url,
+    stats: !!club.stats && !!club.stats.yardage && club.stats.par > 0 && club.stats.holes > 0,
+    signatureHole: !!club.signatureHole && !!club.signatureHole.name && !!club.signatureHole.image?.url,
+  };
+
+  const isComplete = Object.values(completeness).every(Boolean);
+  return { completeness, isComplete };
+};
+
 const AllClubs = () => {
   const [clubList, setClubList] = useState<ClubRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedClub, setSelectedClub] = useState<ClubRow | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUpdating, setIsUpdating] = useState<string | null>(null);
 
   const {
     register,
@@ -60,7 +101,15 @@ const AllClubs = () => {
           location: course.location,
           ownerEmail: course.owner?.email ?? "—",
           status: toClubStatus(course.status),
+          isFeatured: course.isFeatured ?? false,
           teeTimeCount: course.teeTimeCount,
+          summary: course.summary,
+          description: course.description,
+          heroImage: course.heroImage,
+          stats: course.stats,
+          signatureHole: course.signatureHole,
+          sellingPoints: course.sellingPoints,
+          facilities: course.facilities,
         }));
         setClubList(rows);
       } catch (err: any) {
@@ -72,6 +121,59 @@ const AllClubs = () => {
 
     loadClubs();
   }, []);
+
+  const handleApprove = async (id: string, isFeaturedValue: boolean = false) => {
+    setIsUpdating(id);
+    try {
+      const res = await fetchUrl(`/courses/${id}/approve`, {
+        method: "PATCH",
+        body: { isFeatured: isFeaturedValue },
+      });
+      toast.success("Club approved successfully!");
+      setClubList((prev) =>
+        prev.map((c) =>
+          c.id === id
+            ? {
+                ...c,
+                status: "Active",
+                isFeatured: res.data.isFeatured ?? isFeaturedValue,
+              }
+            : c
+        )
+      );
+      if (selectedClub && selectedClub.id === id) {
+        setSelectedClub((prev) => prev ? { ...prev, status: "Active", isFeatured: res.data.isFeatured ?? isFeaturedValue } : null);
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to approve club.");
+    } finally {
+      setIsUpdating(null);
+    }
+  };
+
+  const handleToggleFeatured = async (id: string, currentFeatured: boolean) => {
+    setIsUpdating(id);
+    const newFeatured = !currentFeatured;
+    try {
+      const res = await fetchUrl(`/courses/${id}/approve`, {
+        method: "PATCH",
+        body: { isFeatured: newFeatured },
+      });
+      toast.success(newFeatured ? "Club marked as featured!" : "Club removed from featured.");
+      setClubList((prev) =>
+        prev.map((c) =>
+          c.id === id ? { ...c, isFeatured: res.data.isFeatured ?? newFeatured } : c
+        )
+      );
+      if (selectedClub && selectedClub.id === id) {
+        setSelectedClub((prev) => prev ? { ...prev, isFeatured: res.data.isFeatured ?? newFeatured } : null);
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update featured status.");
+    } finally {
+      setIsUpdating(null);
+    }
+  };
 
   const onSubmit: SubmitHandler<CreateClubForm> = async (data) => {
     setIsSubmitting(true);
@@ -88,7 +190,15 @@ const AllClubs = () => {
         location: course.location,
         ownerEmail: data.email,
         status: toClubStatus(course.status),
+        isFeatured: course.isFeatured ?? false,
         teeTimeCount: 0,
+        summary: course.summary,
+        description: course.description,
+        heroImage: course.heroImage,
+        stats: course.stats,
+        signatureHole: course.signatureHole,
+        sellingPoints: course.sellingPoints,
+        facilities: course.facilities,
       };
 
       setClubList([newClub, ...clubList]);
@@ -132,13 +242,15 @@ const AllClubs = () => {
                 <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Location</th>
                 <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Owner</th>
                 <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-center">Tee Times</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-right">Status</th>
+                <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-center">Status</th>
+                <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-center">Featured</th>
+                <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {isLoading ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-400">
+                  <td colSpan={7} className="px-6 py-12 text-center text-gray-400">
                     <div className="flex items-center justify-center gap-2">
                       <Loader2 className="w-4 h-4 animate-spin" />
                       Loading clubs...
@@ -147,19 +259,23 @@ const AllClubs = () => {
                 </tr>
               ) : loadError ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-red-500 text-sm font-medium">
+                  <td colSpan={7} className="px-6 py-12 text-center text-red-500 text-sm font-medium">
                     {loadError}
                   </td>
                 </tr>
               ) : clubList.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-400">
+                  <td colSpan={7} className="px-6 py-12 text-center text-gray-400">
                     No clubs registered yet.
                   </td>
                 </tr>
               ) : (
                 clubList.map((club) => (
-                  <tr key={club.id} className="hover:bg-gray-50/50 transition-colors">
+                  <tr
+                    key={club.id}
+                    onClick={() => setSelectedClub(club)}
+                    className="hover:bg-gray-50/50 transition-colors cursor-pointer"
+                  >
                     <td className="px-6 py-5">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-[#eefaf3] flex items-center justify-center text-[#2ea268] font-bold shrink-0">
@@ -186,10 +302,10 @@ const AllClubs = () => {
                         {club.teeTimeCount}
                       </div>
                     </td>
-                    <td className="px-6 py-5 text-right">
+                    <td className="px-6 py-5 text-center">
                       <span
                         className={cn(
-                          "px-3 py-1 rounded-full text-xs font-bold border",
+                          "px-3 py-1 rounded-full text-xs font-bold border inline-block",
                           club.status === "Active"
                             ? "bg-green-50 text-green-600 border-green-100"
                             : club.status === "Suspended"
@@ -199,6 +315,46 @@ const AllClubs = () => {
                       >
                         {club.status}
                       </span>
+                    </td>
+                    <td className="px-6 py-5 text-center">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          club.status === "Active" && handleToggleFeatured(club.id, club.isFeatured);
+                        }}
+                        disabled={club.status !== "Active" || isUpdating === club.id}
+                        className={cn(
+                          "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
+                          club.isFeatured ? "bg-emerald-600" : "bg-gray-200",
+                          (club.status !== "Active" || isUpdating === club.id) && "opacity-50 cursor-not-allowed"
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out",
+                            club.isFeatured ? "translate-x-5" : "translate-x-0"
+                          )}
+                        />
+                      </button>
+                    </td>
+                    <td className="px-6 py-5 text-right">
+                      {club.status === "Pending" ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleApprove(club.id);
+                          }}
+                          disabled={isUpdating === club.id}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-xl text-xs transition-all cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-60"
+                        >
+                          {isUpdating === club.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : null}
+                          Approve
+                        </button>
+                      ) : (
+                        <span className="text-gray-400 text-xs font-semibold">Active</span>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -307,6 +463,263 @@ const AllClubs = () => {
             </motion.div>
           </div>
         )}
+      </AnimatePresence>
+
+      {/* CLUB DETAILS MODAL */}
+      <AnimatePresence>
+        {selectedClub && (() => {
+          const { completeness, isComplete } = checkCompleteness(selectedClub);
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
+              {/* Backdrop */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setSelectedClub(null)}
+                className="fixed inset-0 bg-black/50 backdrop-blur-xs"
+              />
+
+              {/* Modal Box */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="relative w-full max-w-4xl bg-white rounded-3xl p-8 border border-slate-100 shadow-2xl z-10 my-8 max-h-[85vh] overflow-y-auto flex flex-col"
+              >
+                {/* Close Button */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedClub(null)}
+                  className="absolute top-6 right-6 text-slate-400 hover:text-slate-600 p-2 rounded-lg transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                {/* Header */}
+                <div className="mb-6 flex flex-wrap items-center gap-4">
+                  <div className="p-4 bg-emerald-50 text-emerald-600 rounded-3xl shrink-0">
+                    <Building2 className="w-8 h-8" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-extrabold text-slate-900 leading-tight">{selectedClub.name}</h2>
+                    <p className="text-slate-500 text-sm flex items-center gap-1.5 mt-1">
+                      <MapPin className="w-4 h-4 text-slate-400" /> {selectedClub.location}
+                      <span className="text-slate-300">•</span>
+                      <Mail className="w-4 h-4 text-slate-400" /> {selectedClub.ownerEmail}
+                    </p>
+                  </div>
+                  <div className="ml-auto flex items-center gap-2">
+                    <span
+                      className={cn(
+                        "px-3 py-1 rounded-full text-xs font-bold border",
+                        selectedClub.status === "Active"
+                          ? "bg-green-50 text-green-600 border-green-100"
+                          : "bg-orange-50 text-orange-600 border-orange-100"
+                      )}
+                    >
+                      {selectedClub.status}
+                    </span>
+                    {selectedClub.isFeatured && (
+                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-600 border border-amber-100 flex items-center gap-1">
+                        <Sparkles className="w-3 h-3 fill-amber-500 text-amber-500" /> Featured
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Content Area */}
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-8 overflow-y-auto">
+                  {/* Left Column (7 cols in desktop) */}
+                  <div className="md:col-span-7 space-y-6">
+                    {/* ── COMPLETENESS CARD ── */}
+                    <div className="bg-slate-50 border border-slate-100 rounded-2xl p-5 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                          Form Completion Status
+                        </h4>
+                        <span className={cn(
+                          "px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase",
+                          isComplete ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"
+                        )}>
+                          {isComplete ? "Completed" : "Incomplete"}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                        {[
+                          { key: "summary", label: "Summary & Overview" },
+                          { key: "description", label: "Detailed Description" },
+                          { key: "heroImage", label: "Hero Image Upload" },
+                          { key: "stats", label: "Stats & Course Info" },
+                          { key: "signatureHole", label: "Signature Hole Setup" },
+                        ].map((item) => {
+                          const isFilled = completeness[item.key as keyof typeof completeness];
+                          return (
+                            <div key={item.key} className="flex items-center gap-2">
+                              <CheckCircle2 className={cn("w-4 h-4 shrink-0", isFilled ? "text-green-500" : "text-slate-350")} />
+                              <span className={cn("font-medium", isFilled ? "text-slate-700" : "text-slate-400 line-through")}>
+                                {item.label}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Approve Button in Modal */}
+                      {selectedClub.status === "Pending" && (
+                        <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between gap-4">
+                          <p className="text-[11px] text-slate-400 leading-relaxed">
+                            {isComplete
+                              ? "All required fields are completed. You can approve this club now."
+                              : "The club owner needs to complete all form sections before this club can be approved."}
+                          </p>
+                          <button
+                            onClick={() => handleApprove(selectedClub.id)}
+                            disabled={!isComplete || isUpdating === selectedClub.id}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs transition-all cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Approve Club
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* ── OVERVIEW ── */}
+                    <div className="space-y-3">
+                      <h3 className="font-extrabold text-slate-800 text-sm uppercase tracking-wider">Overview</h3>
+                      <div className="space-y-4">
+                        <div>
+                          <h4 className="text-[11px] font-bold text-slate-400 uppercase">Summary</h4>
+                          <p className="text-slate-600 text-sm mt-1 leading-relaxed">
+                            {selectedClub.summary || "No summary provided."}
+                          </p>
+                        </div>
+                        <div>
+                          <h4 className="text-[11px] font-bold text-slate-400 uppercase">Description</h4>
+                          <p className="text-slate-600 text-sm mt-1 leading-relaxed whitespace-pre-line">
+                            {selectedClub.description || "No description provided."}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* ── STATS ── */}
+                    <div className="space-y-3">
+                      <h3 className="font-extrabold text-slate-800 text-sm uppercase tracking-wider">Stats & Course Info</h3>
+                      {selectedClub.stats ? (
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                          {[
+                            { label: "Yardage", value: selectedClub.stats.yardage },
+                            { label: "Par", value: selectedClub.stats.par },
+                            { label: "Slope", value: selectedClub.stats.slope },
+                            { label: "Rating", value: selectedClub.stats.rating },
+                            { label: "Holes", value: selectedClub.stats.holes },
+                            { label: "Tees", value: selectedClub.stats.tees },
+                            { label: "Elevation", value: selectedClub.stats.elevation },
+                            { label: "Difficulty", value: selectedClub.stats.difficulty },
+                          ].map((stat, i) => (
+                            <div key={i} className="bg-slate-50 border border-slate-100 rounded-xl p-3 text-center">
+                              <span className="block text-[10px] font-bold text-slate-400 uppercase">{stat.label}</span>
+                              <span className="block font-bold text-slate-800 text-sm mt-1">{stat.value || "—"}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-slate-400 text-sm">No course stats provided.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Right Column (5 cols in desktop) */}
+                  <div className="md:col-span-5 space-y-6">
+                    {/* ── HERO IMAGE ── */}
+                    <div>
+                      <h3 className="font-extrabold text-slate-800 text-sm uppercase tracking-wider mb-2">Hero Image</h3>
+                      {selectedClub.heroImage?.url ? (
+                        <div className="relative aspect-video rounded-2xl overflow-hidden border border-slate-100 shadow-sm bg-slate-50">
+                          <img
+                            src={getMediaUrl(selectedClub.heroImage.url)}
+                            alt="Hero Image"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className="aspect-video rounded-2xl border-2 border-dashed border-slate-200 flex items-center justify-center text-slate-400 text-xs">
+                          No hero image uploaded
+                        </div>
+                      )}
+                    </div>
+
+                    {/* ── SIGNATURE HOLE ── */}
+                    <div>
+                      <h3 className="font-extrabold text-slate-800 text-sm uppercase tracking-wider mb-2">Signature Hole</h3>
+                      {selectedClub.signatureHole ? (
+                        <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-3">
+                          {selectedClub.signatureHole.image?.url && (
+                            <div className="relative aspect-video rounded-xl overflow-hidden bg-slate-200">
+                              <img
+                                src={getMediaUrl(selectedClub.signatureHole.image.url)}
+                                alt="Signature Hole"
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-slate-800 text-sm">
+                              Hole {selectedClub.signatureHole.number || "—"}: {selectedClub.signatureHole.name || "—"}
+                            </span>
+                            <span className="text-xs font-semibold text-slate-500">
+                              Par {selectedClub.signatureHole.par || "—"} • {selectedClub.signatureHole.yardage || "—"} Yards
+                            </span>
+                          </div>
+                          <p className="text-slate-500 text-xs leading-relaxed">
+                            {selectedClub.signatureHole.notes || "No signature hole notes."}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="rounded-2xl border-2 border-dashed border-slate-200 p-4 text-center text-slate-400 text-xs">
+                          No signature hole details
+                        </div>
+                      )}
+                    </div>
+
+                    {/* ── SELLING POINTS ── */}
+                    <div>
+                      <h3 className="font-extrabold text-slate-800 text-sm uppercase tracking-wider mb-2">Selling Points</h3>
+                      {selectedClub.sellingPoints && selectedClub.sellingPoints.length > 0 && selectedClub.sellingPoints.some(sp => sp.title) ? (
+                        <div className="space-y-2">
+                          {selectedClub.sellingPoints.map((sp, i) => sp.title ? (
+                            <div key={i} className="bg-slate-50 border border-slate-100 rounded-xl p-3">
+                              <div className="flex items-center gap-1.5 font-bold text-slate-800 text-xs">
+                                <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                {sp.title}
+                              </div>
+                              <p className="text-slate-500 text-[11px] mt-1 leading-relaxed">{sp.description}</p>
+                            </div>
+                          ) : null)}
+                        </div>
+                      ) : (
+                        <p className="text-slate-400 text-xs">No selling points provided.</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer buttons */}
+                <div className="pt-6 mt-6 border-t border-slate-100 flex justify-end gap-3 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedClub(null)}
+                    className="py-3 px-6 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 text-sm font-semibold transition-all cursor-pointer text-center"
+                  >
+                    Close Details
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          );
+        })()}
       </AnimatePresence>
     </RequireRole>
   );

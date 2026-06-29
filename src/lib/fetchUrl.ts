@@ -3,6 +3,14 @@ import { cache } from "react";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
 
+// Tells the backend which frontend is calling, so it can hand out a
+// separate refresh-token cookie per app. Without this, the website and
+// dashboard — both calling this same backend host — would share one
+// browser cookie (cookies aren't port-scoped), so logging into one would
+// silently hijack the other's session.
+const CLIENT_APP_HEADER = "X-Client-App";
+const CLIENT_APP = "dashboard";
+
 // Media URLs come back as paths relative to the API server's origin
 // (e.g. "/uploads/xyz.jpg"), not the "/api/v1"-prefixed BASE_URL.
 export const API_ORIGIN = BASE_URL.replace(/\/api\/v1\/?$/, "");
@@ -24,6 +32,7 @@ const getServerAccessToken = cache(async (cookieHeader: string): Promise<string 
       method: "POST",
       headers: {
         Cookie: cookieHeader,
+        [CLIENT_APP_HEADER]: CLIENT_APP,
       },
     });
     if (!response.ok) return null;
@@ -42,11 +51,12 @@ export async function fetchUrl(endpoint: string, options: FetchOptions = {}): Pr
   if (!headers.has("Content-Type") && !(options.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
+  headers.set(CLIENT_APP_HEADER, CLIENT_APP);
 
   // Forward credentials/auth based on environment
   if (isServer) {
-    const { cookies } = require("next/headers");
-    const cookieStore = cookies();
+    const { cookies } = await import("next/headers");
+    const cookieStore = await cookies();
     const cookieHeader = cookieStore.toString();
     if (cookieHeader) {
       headers.set("Cookie", cookieHeader);
@@ -83,9 +93,13 @@ export async function fetchUrl(endpoint: string, options: FetchOptions = {}): Pr
         setClientToken("");
         window.sessionStorage.clear();
         try {
-          await fetch(`${BASE_URL}/auth/logout`, { method: "POST", credentials: "include" });
+          await fetch(`${BASE_URL}/auth/logout`, {
+            method: "POST",
+            credentials: "include",
+            headers: { [CLIENT_APP_HEADER]: CLIENT_APP },
+          });
         } catch {}
-        
+
         // Only redirect if not already on an auth page to prevent infinite reload loop
         const pathname = window.location.pathname;
         const isAuthPage = pathname.startsWith("/sign-in") ||
@@ -98,8 +112,8 @@ export async function fetchUrl(endpoint: string, options: FetchOptions = {}): Pr
       }
     } else {
       if (isServer) {
-        const { cookies } = require("next/headers");
-        const cookieHeader = cookies().toString();
+        const { cookies } = await import("next/headers");
+        const cookieHeader = (await cookies()).toString();
         if (cookieHeader) {
           const newAccessToken = await getServerAccessToken(cookieHeader);
           if (newAccessToken) {
@@ -113,6 +127,7 @@ export async function fetchUrl(endpoint: string, options: FetchOptions = {}): Pr
           const refreshResponse = await fetch(`${BASE_URL}/auth/refresh-token`, {
             method: "POST",
             credentials: "include",
+            headers: { [CLIENT_APP_HEADER]: CLIENT_APP },
           });
           if (refreshResponse.ok) {
             const refreshData = await refreshResponse.json();
@@ -132,7 +147,11 @@ export async function fetchUrl(endpoint: string, options: FetchOptions = {}): Pr
           setClientToken("");
           window.sessionStorage.clear();
           try {
-            await fetch(`${BASE_URL}/auth/logout`, { method: "POST", credentials: "include" });
+            await fetch(`${BASE_URL}/auth/logout`, {
+              method: "POST",
+              credentials: "include",
+              headers: { [CLIENT_APP_HEADER]: CLIENT_APP },
+            });
           } catch {}
 
           // Only redirect if not already on an auth page to prevent infinite reload loop

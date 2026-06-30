@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { FieldError, UseFormRegister } from "react-hook-form";
+import { FieldError, RegisterOptions, UseFormRegister } from "react-hook-form";
 
 type InputFieldProps = {
   name: string;
@@ -9,6 +9,7 @@ type InputFieldProps = {
   register: UseFormRegister<any>;
   error?: FieldError;
   disabled?: boolean;
+  rules?: RegisterOptions;
 };
 
 const InputField = ({
@@ -19,13 +20,14 @@ const InputField = ({
   register,
   error,
   disabled,
+  rules,
 }: InputFieldProps) => {
   return (
     <div className="space-y-3">
       {title && <label className="block text-[11px] font-bold tracking-widest text-[#9CA3AF] uppercase mb-2">{title}</label>}
       <div className="relative group">
         <input
-          {...register(name)}
+          {...register(name, rules)}
           type={type}
           placeholder={placeholder}
           disabled={disabled}

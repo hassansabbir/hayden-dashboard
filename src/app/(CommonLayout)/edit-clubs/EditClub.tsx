@@ -15,7 +15,8 @@ import {
   Sparkles,
   X,
   Star,
-  Loader2
+  Loader2,
+  Video
 } from "lucide-react";
 import { toast } from "sonner";
 import ImageUpload from "@/components/form/ImageUpload";
@@ -38,6 +39,11 @@ interface Facility {
 interface GalleryImage {
   src: string | File;
   mediaId?: string;
+}
+
+interface HoleVideo {
+  holeNumber: number;
+  url: string;
 }
 
 interface ClubFormValues {
@@ -71,6 +77,7 @@ interface ClubFormValues {
     image: string | File;
   };
   gallery: GalleryImage[];
+  holeVideos: HoleVideo[];
 }
 
 const blankClubInfo: ClubFormValues = {
@@ -109,6 +116,7 @@ const blankClubInfo: ClubFormValues = {
     image: "",
   },
   gallery: [],
+  holeVideos: [],
 };
 
 const MEDIA_TYPE = {
@@ -125,7 +133,7 @@ const EditClub = () => {
   const [heroImageId, setHeroImageId] = useState<string | undefined>(undefined);
   const [signatureHoleImageId, setSignatureHoleImageId] = useState<string | undefined>(undefined);
 
-  const { register, control, handleSubmit, reset, setError, formState: { errors } } = useForm<ClubFormValues>({
+  const { register, control, handleSubmit, reset, setError, watch, formState: { errors } } = useForm<ClubFormValues>({
     defaultValues: blankClubInfo
   });
 
@@ -137,6 +145,11 @@ const EditClub = () => {
   const { fields: galleryFields, append: appendGallery, remove: removeGallery } = useFieldArray({
     control,
     name: "gallery"
+  });
+
+  const { fields: holeVideoFields, append: appendHoleVideo, remove: removeHoleVideo } = useFieldArray({
+    control,
+    name: "holeVideos"
   });
 
   useEffect(() => {
@@ -189,6 +202,7 @@ const EditClub = () => {
             src: getMediaUrl(media.url),
             mediaId: media._id,
           })),
+          holeVideos: course.holeVideos ?? [],
         });
       } catch (err: any) {
         setLoadError(err.message || "Failed to load club profile.");
@@ -243,6 +257,7 @@ const EditClub = () => {
       const filledFacilities = data.facilities.filter(
         (f) => f.name.trim() && f.description.trim()
       );
+      const filledHoleVideos = data.holeVideos.filter((v) => v.holeNumber > 0 && v.url.trim());
       const isStatsFilled = Boolean(
         data.stats.yardage.trim() &&
           data.stats.par > 0 &&
@@ -275,6 +290,7 @@ const EditClub = () => {
       if (newHeroImageId) payload.heroImage = newHeroImageId;
       if (isStatsFilled) payload.stats = data.stats;
       if (filledSellingPoints.length > 0) payload.sellingPoints = filledSellingPoints;
+      if (filledHoleVideos.length > 0) payload.holeVideos = filledHoleVideos;
       if (isSignatureHoleFilled) {
         payload.signatureHole = { ...data.signatureHole, image: newSignatureHoleImageId };
       }
@@ -323,6 +339,7 @@ const EditClub = () => {
             src: getMediaUrl(media.url),
             mediaId: media._id,
           })),
+          holeVideos: course.holeVideos ?? [],
         },
         { keepDirty: false }
       );
@@ -621,6 +638,111 @@ const EditClub = () => {
                 </AnimatePresence>
               </div>
             </section>
+
+            {/* SECTION 7: COURSE HOLE VIDEOS */}
+            {(() => {
+              const usedHoles = new Set(watch("holeVideos").map((v) => v.holeNumber));
+              const nextAvailableHole =
+                Array.from({ length: 18 }, (_, i) => i + 1).find((n) => !usedHoles.has(n)) ?? null;
+
+              return (
+                <section className="bg-white border border-slate-200 rounded-3xl p-8 shadow-xs relative">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-3 bg-teal-50 rounded-xl text-teal-600">
+                        <Video size={24} />
+                      </div>
+                      <h2 className="text-2xl font-bold text-slate-800">Course Hole Videos</h2>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={nextAvailableHole === null}
+                      onClick={() => {
+                        if (nextAvailableHole !== null) {
+                          appendHoleVideo({ holeNumber: nextAvailableHole, url: "" });
+                        }
+                      }}
+                      className="flex items-center gap-2 bg-teal-50 hover:bg-teal-100 text-teal-600 px-5 py-2.5 rounded-xl text-sm font-bold transition-all border border-teal-100 cursor-pointer self-start disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <Plus size={18} /> Add Hole
+                    </button>
+                  </div>
+                  <p className="text-sm text-slate-400 font-medium mb-8">
+                    Add a video link for any hole — YouTube, Vimeo, or any hosted video URL. Click &quot;Add Hole&quot; for each hole you want to showcase.
+                  </p>
+
+                  {holeVideoFields.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl gap-3">
+                      <Video size={36} className="text-slate-300" />
+                      <p className="text-sm font-medium">No hole videos added yet</p>
+                      <p className="text-xs">Click &quot;Add Hole&quot; above to start adding video links</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                      <AnimatePresence mode="popLayout">
+                        {holeVideoFields.map((field, index) => (
+                          <motion.div
+                            key={field.id}
+                            layout
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="group bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-3 hover:border-teal-300 transition-all relative"
+                          >
+                            <button
+                              type="button"
+                              onClick={() => removeHoleVideo(index)}
+                              className="absolute top-4 right-4 text-slate-400 hover:text-red-500 transition-colors p-1"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+
+                            <div className="pr-7">
+                              <label className="block text-[11px] font-bold tracking-widest text-[#9CA3AF] uppercase mb-2">
+                                Hole Number
+                              </label>
+                              <Controller
+                                control={control}
+                                name={`holeVideos.${index}.holeNumber`}
+                                render={({ field: f }) => (
+                                  <select
+                                    value={f.value}
+                                    onChange={(e) => f.onChange(Number(e.target.value))}
+                                    className="w-full rounded-lg bg-white border border-slate-200 px-4 py-3 text-[14px] text-gray-600 outline-none transition-all focus:border-teal-400"
+                                  >
+                                    {Array.from({ length: 18 }, (_, i) => i + 1).map((n) => (
+                                      <option
+                                        key={n}
+                                        value={n}
+                                        disabled={usedHoles.has(n) && f.value !== n}
+                                      >
+                                        Hole #{n}{usedHoles.has(n) && f.value !== n ? " (added)" : ""}
+                                      </option>
+                                    ))}
+                                  </select>
+                                )}
+                              />
+                            </div>
+
+                            <InputField
+                              title="Video URL"
+                              name={`holeVideos.${index}.url`}
+                              placeholder="https://..."
+                              register={register}
+                              error={errors.holeVideos?.[index]?.url}
+                              rules={{
+                                validate: (v: string) =>
+                                  !v || /^https?:\/\/.+/.test(v) || "Must start with https://",
+                              }}
+                            />
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
+                    </div>
+                  )}
+                </section>
+              );
+            })()}
 
             {/* FORM SUBMISSION BAR */}
             <div className="flex flex-col md:flex-row items-center justify-between pt-6 border-t border-slate-200 gap-6">

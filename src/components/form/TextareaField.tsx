@@ -1,4 +1,4 @@
-import { TextareaHTMLAttributes, useCallback } from "react";
+import { TextareaHTMLAttributes } from "react";
 
 type TextareaFieldProps = TextareaHTMLAttributes<HTMLTextAreaElement> & {
   name: string;
@@ -22,13 +22,6 @@ const TextareaField = ({
 
   const errorMessage = error?.message || error;
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const mergedRef = useCallback((el: HTMLTextAreaElement | null) => {
-    if (typeof rhfRef === "function") {
-      rhfRef(el);
-    }
-  }, [rhfRef]);
-
   return (
     <div className="space-y-3">
       <label className="block text-[11px] font-bold tracking-widest text-[#9CA3AF] uppercase">
@@ -40,12 +33,11 @@ const TextareaField = ({
           rows={rows}
           {...props}
           {...formProps}
-          ref={rhfRef ? mergedRef : undefined}
+          ref={rhfRef}
           className={`w-full bg-white border rounded-lg py-3 px-6 text-[14px] text-gray-600 placeholder:text-gray-400 outline-none transition-all focus:border-[#0B3B0B]/40 focus:bg-white ${
             errorMessage ? "border-red-400 bg-red-50/30" : "border-slate-200"
           } ${className}`}
         />
-
         {errorMessage && typeof errorMessage === "string" && (
           <p className="text-sm font-medium text-red-500 mt-2 px-1">{errorMessage}</p>
         )}

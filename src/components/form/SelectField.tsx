@@ -1,4 +1,4 @@
-import { SelectHTMLAttributes, useCallback } from "react";
+import { SelectHTMLAttributes } from "react";
 
 type SelectFieldProps = SelectHTMLAttributes<HTMLSelectElement> & {
   name: string;
@@ -23,13 +23,6 @@ const SelectField = ({
 
   const errorMessage = error?.message || error;
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const mergedRef = useCallback((el: HTMLSelectElement | null) => {
-    if (typeof rhfRef === "function") {
-      rhfRef(el);
-    }
-  }, [rhfRef]);
-
   return (
     <div className="space-y-3">
       {title && (
@@ -42,7 +35,7 @@ const SelectField = ({
           name={name}
           {...props}
           {...formProps}
-          ref={rhfRef ? mergedRef : undefined}
+          ref={rhfRef}
           className={`w-full rounded-lg bg-white border border-slate-200 px-6 py-3 text-[14px] text-gray-600 outline-none transition-all focus:border-[#0b3b0b]/40 focus:bg-white disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed ${className}`}
         >
           {options.map((opt) => (
@@ -51,7 +44,6 @@ const SelectField = ({
             </option>
           ))}
         </select>
-
         {errorMessage && typeof errorMessage === "string" && (
           <p className="text-sm font-medium text-red-500 mt-2 px-1">{errorMessage}</p>
         )}

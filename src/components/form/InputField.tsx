@@ -1,4 +1,4 @@
-import { InputHTMLAttributes, useCallback } from "react";
+import { InputHTMLAttributes } from "react";
 
 type InputFieldProps = InputHTMLAttributes<HTMLInputElement> & {
   name: string;
@@ -18,22 +18,14 @@ const InputField = ({
   rules,
   ...props
 }: InputFieldProps) => {
-  // register() returns { ref, name, onChange, onBlur }.
-  // We destructure `ref` out so it isn't shadowed by a second JSX `ref` prop.
-  // RHF uses this ref to read the DOM input's current value on submit —
-  // if it's missing the form values will be stale (defaultValues only).
+  // Destructure `ref` out of register()'s return value so it isn't shadowed
+  // by a later JSX prop. In RHF v7 `ref` is already a stable callback ref —
+  // pass it directly; no wrapper needed.
   const { ref: rhfRef, ...formProps } = register
     ? register(name, rules)
     : ({ ref: undefined } as { ref: undefined });
 
   const errorMessage = error?.message || error;
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const mergedRef = useCallback((el: HTMLInputElement | null) => {
-    if (typeof rhfRef === "function") {
-      rhfRef(el);
-    }
-  }, [rhfRef]);
 
   return (
     <div className="space-y-3">
@@ -48,15 +40,10 @@ const InputField = ({
           {...props}
           {...formProps}
           name={name}
-          ref={rhfRef ? mergedRef : undefined}
-          // A focused <input type="number"> silently changes value when the
-          // page is scrolled with the cursor over it (Chrome/Edge default
-          // behavior) — blur on wheel so scrolling past it on a long form
-          // never mutates whatever the user actually typed.
+          ref={rhfRef}
           onWheel={type === "number" ? (e) => e.currentTarget.blur() : undefined}
           className={`w-full rounded-lg bg-white border border-slate-200 px-6 py-3 text-[14px] text-gray-600 outline-none transition-all placeholder:text-[#9CA3AF] focus:border-[#0b3b0b]/40 focus:bg-white disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed ${className}`}
         />
-
         {errorMessage && typeof errorMessage === "string" && (
           <p className="text-sm font-medium text-red-500 mt-2 px-1">{errorMessage}</p>
         )}

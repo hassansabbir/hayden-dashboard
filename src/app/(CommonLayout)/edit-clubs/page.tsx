@@ -1,11 +1,12 @@
-import EditClub from "./EditClub"
+import EditClubForm from "./components/EditClubForm";
+
 
 const page = () => {
   return (
     <div>
-      <EditClub />
+      <EditClubForm />
     </div>
   )
 }
 
-export default page
+export default page;

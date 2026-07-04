@@ -1,24 +1,49 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { FieldError, UseFormRegister } from "react-hook-form";
+import { SelectHTMLAttributes, useCallback } from "react";
 
-type SelectFieldProps = {
+type SelectFieldProps = SelectHTMLAttributes<HTMLSelectElement> & {
   name: string;
   title?: string;
   options: { label: string; value: string | number }[];
-  register: UseFormRegister<any>;
-  error?: FieldError;
-  disabled?: boolean;
+  error?: any;
+  register?: any;
 };
 
-const SelectField = ({ title, name, options, register, error, disabled }: SelectFieldProps) => {
+const SelectField = ({
+  title,
+  name,
+  options,
+  error,
+  className = "",
+  register,
+  ...props
+}: SelectFieldProps) => {
+  const { ref: rhfRef, ...formProps } = register
+    ? register(name)
+    : ({ ref: undefined } as { ref: undefined });
+
+  const errorMessage = error?.message || error;
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const mergedRef = useCallback((el: HTMLSelectElement | null) => {
+    if (typeof rhfRef === "function") {
+      rhfRef(el);
+    }
+  }, [rhfRef]);
+
   return (
     <div className="space-y-3">
-      {title && <label className="block text-[11px] font-bold tracking-widest text-[#9CA3AF] uppercase mb-2">{title}</label>}
+      {title && (
+        <label className="block text-[11px] font-bold tracking-widest text-[#9CA3AF] uppercase mb-2">
+          {title}
+        </label>
+      )}
       <div className="relative group">
         <select
-          {...register(name)}
-          disabled={disabled}
-          className="w-full rounded-lg bg-white border border-slate-200 px-6 py-3 text-[14px] text-gray-600 outline-none transition-all focus:border-[#0b3b0b]/40 focus:bg-white disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
+          name={name}
+          {...props}
+          {...formProps}
+          ref={rhfRef ? mergedRef : undefined}
+          className={`w-full rounded-lg bg-white border border-slate-200 px-6 py-3 text-[14px] text-gray-600 outline-none transition-all focus:border-[#0b3b0b]/40 focus:bg-white disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed ${className}`}
         >
           {options.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -27,10 +52,8 @@ const SelectField = ({ title, name, options, register, error, disabled }: Select
           ))}
         </select>
 
-        {error && (
-          <p className="text-sm font-medium text-red-500 mt-2 px-1">
-            {error.message}
-          </p>
+        {errorMessage && typeof errorMessage === "string" && (
+          <p className="text-sm font-medium text-red-500 mt-2 px-1">{errorMessage}</p>
         )}
       </div>
     </div>

@@ -16,10 +16,10 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(signInUrl);
   }
 
-  // If a refresh token cookie exists and the user is trying to access an auth page, redirect to home page
-  if (token && isAuthPage) {
-    return NextResponse.redirect(new URL("/", request.url));
-  }
+  // Removed the blind redirect away from auth pages to prevent infinite loops.
+  // If the token is expired, the backend's /auth/logout might fail to clear it,
+  // trapping the user in a redirect loop between / and /sign-in. Let the client
+  // handle redirecting valid sessions away from the sign-in page instead.
 
   return NextResponse.next();
 }

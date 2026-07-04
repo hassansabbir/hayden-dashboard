@@ -1,43 +1,53 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { FieldError, UseFormRegister } from "react-hook-form";
+import { TextareaHTMLAttributes, useCallback } from "react";
 
-type TextareaFieldProps = {
+type TextareaFieldProps = TextareaHTMLAttributes<HTMLTextAreaElement> & {
   name: string;
   title: string;
-  placeholder?: string;
-  type?: string;
-  register: UseFormRegister<any>;
-  error?: FieldError;
-  rows?: number;
+  error?: any;
+  register?: any;
 };
 
 const TextareaField = ({
   title,
   name,
-  placeholder,
-  register,
   error,
   rows = 4,
+  className = "",
+  register,
+  ...props
 }: TextareaFieldProps) => {
+  const { ref: rhfRef, ...formProps } = register
+    ? register(name)
+    : ({ ref: undefined } as { ref: undefined });
+
+  const errorMessage = error?.message || error;
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const mergedRef = useCallback((el: HTMLTextAreaElement | null) => {
+    if (typeof rhfRef === "function") {
+      rhfRef(el);
+    }
+  }, [rhfRef]);
+
   return (
     <div className="space-y-3">
-      <label className="block text-[11px] font-bold tracking-widest text-[#9CA3AF] uppercase">{title}</label>
+      <label className="block text-[11px] font-bold tracking-widest text-[#9CA3AF] uppercase">
+        {title}
+      </label>
       <div className="relative group">
         <textarea
-          {...register(name)}
-          placeholder={placeholder}
-          className={`w-full bg-white border rounded-lg py-3 px-6 text-[14px] text-gray-600 placeholder:text-gray-400 outline-none transition-all focus:border-[#0B3B0B]/40 focus:bg-white
-        ${error
-              ? "border-red-400 bg-red-50/30"
-              : "border-slate-200"
-            }`}
+          name={name}
           rows={rows}
+          {...props}
+          {...formProps}
+          ref={rhfRef ? mergedRef : undefined}
+          className={`w-full bg-white border rounded-lg py-3 px-6 text-[14px] text-gray-600 placeholder:text-gray-400 outline-none transition-all focus:border-[#0B3B0B]/40 focus:bg-white ${
+            errorMessage ? "border-red-400 bg-red-50/30" : "border-slate-200"
+          } ${className}`}
         />
 
-        {error && (
-          <p className="text-sm font-medium text-red-500 mt-2 px-1">
-            {error.message}
-          </p>
+        {errorMessage && typeof errorMessage === "string" && (
+          <p className="text-sm font-medium text-red-500 mt-2 px-1">{errorMessage}</p>
         )}
       </div>
     </div>
